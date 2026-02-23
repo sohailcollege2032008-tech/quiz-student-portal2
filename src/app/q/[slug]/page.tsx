@@ -18,6 +18,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     const supabase = await createClient();
 
     // 1. Fetch Question data by qr_slug
+    console.log('Fetching question with slug:', slug);
     const { data: question, error: qError } = await supabase
         .from('questions')
         .select(`
@@ -29,7 +30,11 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
         .single();
 
     if (qError || !question) {
-        console.error('Question fetch error:', qError);
+        console.error('Question fetch error details:', {
+            error: qError,
+            slug,
+            receivedData: question
+        });
         return notFound();
     }
 
