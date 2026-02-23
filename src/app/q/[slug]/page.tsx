@@ -7,6 +7,8 @@ import { ChevronLeft, BookOpen, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { getReviewStatus } from '@/app/actions/review-actions';
 import { checkUserActivation } from '@/app/actions/auth-actions';
+import LoginForm from '@/components/auth/LoginForm';
+import RedeemForm from '@/components/auth/RedeemForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,17 +60,11 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     // 2. Check if user has access (activated the book)
     const { authenticated, activated } = await checkUserActivation(question.book_id, question.book?.title);
 
-    if (!authenticated) {
-        // Instead of a forced server-side redirect, we could show a "Login Required" card
-        // But for now, sticking to redirect to keep it simple, but adding the returnTo
-        redirect(`/login?returnTo=/q/${slug}`);
-    }
-
     const isActivated = activated;
-    console.log(`Activation status for question ${question.id}:`, isActivated);
+    console.log(`Auth status: ${authenticated}, Activation status: ${isActivated}`);
 
-    // 3. Fetch initial review list status
-    const initialIsInReviewList = await getReviewStatus(question.id);
+    // 3. Fetch initial review list status (only if activated)
+    const initialIsInReviewList = isActivated ? await getReviewStatus(question.id) : false;
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">
@@ -91,24 +87,19 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
                     </div>
                 </div>
 
-                {/* Lock Screen if not activated */}
-                {!isActivated ? (
-                    <Card className="p-12 border-dashed border-gray-800 bg-[#111] text-center space-y-6">
-                        <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto text-amber-500">
-                            <BookOpen className="w-8 h-8" />
+                {/* Inline Auth/Activation Flow */}
+                {!authenticated ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-8">
+                        <div className="text-center space-y-2">
+                            <h2 className="text-3xl font-bold">Login Required</h2>
+                            <p className="text-gray-400">Please sign in to access your study materials.</p>
                         </div>
-                        <div className="space-y-2">
-                            <h2 className="text-2xl font-bold">Book Not Activated</h2>
-                            <p className="text-gray-400 max-w-sm mx-auto">
-                                You need to redeem an access code for <strong>{question.book?.title}</strong> to view this question and its solution.
-                            </p>
-                        </div>
-                        <Link href={`/redeem?bookId=${question.book_id}`}>
-                            <Button className="bg-emerald-600 hover:bg-emerald-500 text-white px-8">
-                                Redeem Code
-                            </Button>
-                        </Link>
-                    </Card>
+                        <LoginForm />
+                    </div>
+                ) : !isActivated ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-8">
+                        <RedeemForm />
+                    </div>
                 ) : (
                     /* Question Content */
                     <QuestionDisplay

@@ -31,9 +31,18 @@ export default function LoginForm() {
         } else {
             // Give extra time for cookies to settle
             setTimeout(() => {
-                const returnTo = searchParams.get('returnTo') || '/dashboard'
-                router.push(returnTo)
-                router.refresh()
+                const returnTo = searchParams.get('returnTo')
+                if (returnTo) {
+                    router.push(returnTo)
+                    router.refresh()
+                } else {
+                    // If we're inline (e.g. on a question page), just refresh to unlock
+                    router.refresh()
+                    // Fallback to dashboard if not on a specific page
+                    if (window.location.pathname === '/login') {
+                        router.push('/dashboard')
+                    }
+                }
             }, 500)
         }
     }

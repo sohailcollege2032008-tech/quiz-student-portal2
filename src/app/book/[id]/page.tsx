@@ -4,6 +4,8 @@ import { checkUserActivation } from '@/app/actions/auth-actions';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, BookOpen, GraduationCap, ChevronRight, HelpCircle } from 'lucide-react';
+import LoginForm from '@/components/auth/LoginForm';
+import RedeemForm from '@/components/auth/RedeemForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +20,23 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
     const { authenticated, activated } = await checkUserActivation(id, bookData.title);
 
     if (!authenticated) {
-        redirect(`/login?returnTo=/book/${id}`);
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 flex flex-col items-center justify-center space-y-8">
+                <div className="text-center space-y-2">
+                    <h2 className="text-3xl font-bold text-white">Login Required</h2>
+                    <p className="text-gray-400">Sign in to access <strong>{bookData.title}</strong></p>
+                </div>
+                <LoginForm />
+            </div>
+        );
     }
 
     if (!activated) {
-        redirect(`/redeem?bookId=${id}`);
+        return (
+            <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 flex flex-col items-center justify-center space-y-8">
+                <RedeemForm />
+            </div>
+        );
     }
 
     const book = bookData;

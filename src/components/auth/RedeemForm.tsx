@@ -31,8 +31,11 @@ export default function RedeemForm() {
             })
 
             setTimeout(() => {
-                router.push('/dashboard')
-                router.refresh()
+                if (window.location.pathname === '/redeem') {
+                    router.push('/dashboard')
+                } else {
+                    router.refresh()
+                }
             }, 2000)
 
         } catch (err: any) {
