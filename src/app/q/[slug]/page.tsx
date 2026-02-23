@@ -7,6 +7,8 @@ import { ChevronLeft, BookOpen, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { getReviewStatus } from '@/app/actions/review-actions';
 
+export const dynamic = 'force-dynamic';
+
 interface QuestionPageProps {
     params: {
         slug: string;
