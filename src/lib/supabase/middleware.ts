@@ -27,7 +27,8 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // refreshing the auth token
+    // IMPORTANT: Do not remove this call!
+    // This is required to refresh the auth token if it's expired.
     await supabase.auth.getUser()
 
     return supabaseResponse

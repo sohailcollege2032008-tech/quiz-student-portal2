@@ -31,6 +31,13 @@ export default function QuestionDisplay({
     const [isBookmarked, setIsBookmarked] = useState(initialIsInReviewList)
     const [isToggling, setIsToggling] = useState(false)
 
+    // Helper to detect if text contains Arabic characters
+    const getDirection = (text: string) => {
+        if (!text) return 'ltr'
+        const arabicRegex = /[\u0600-\u06FF]/
+        return arabicRegex.test(text) ? 'rtl' : 'ltr'
+    }
+
     useEffect(() => {
         // Trigger MathJax typesetting
         if (typeof window !== 'undefined' && (window as any).MathJax) {
@@ -69,10 +76,88 @@ export default function QuestionDisplay({
 
     const data = question.content_json
     const sections = [
-        { id: 1, title: 'The Idea', type: 'idea', icon: Lightbulb, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-        { id: 2, title: 'The Approach', type: 'approach', icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-        { id: 3, title: 'The Solution', type: 'solution', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
+        { id: 1, title: 'The Idea', type: 'the_idea', icon: Lightbulb, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+        { id: 2, title: 'The Approach', type: 'how_to_solve', icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+        { id: 3, title: 'The Solution', type: 'explanation', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
     ]
+
+    const getSectionContent = (type: string) => {
+        if (type === 'explanation') {
+            // Priority 1: True/False Explanation
+            if (question.type === 'tf' && data.tf_data) {
+                const isTrue = data.tf_data.is_true
+                return `
+                    <div class="mb-4 flex items-center gap-2 ${isTrue ? 'text-emerald-400' : 'text-red-400'} font-bold text-xl uppercase tracking-wider">
+                        ${isTrue ? '✅ True statement' : '❌ False statement'}
+                    </div>
+                    <div class="text-gray-300 leading-relaxed">${data.tf_data.explanation || 'No explanation provided.'}</div>
+                `
+            }
+
+            // Priority 2: Matching Explanation
+            if (question.type === 'matching' && data.matching_data) {
+                const mapping = data.matching_data.correct_mapping
+                const items = data.matching_data.items
+                const options = data.matching_data.options
+
+                let html = `<div class="mb-6 space-y-3">`
+                html += `<div class="text-blue-400 font-medium mb-4 flex items-center gap-2">🔗 Correct Matches:</div>`
+
+                Object.entries(mapping).forEach(([itemId, optId]) => {
+                    const item = items.find((i: any) => String(i.id) === String(itemId))
+                    const option = options.find((o: any) => String(o.id) === String(optId))
+                    if (item && option) {
+                        html += `
+                            <div class="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-2xl">
+                                <span class="font-bold text-gray-400 min-w-[24px]">${item.id}.</span>
+                                <span class="text-gray-200">${item.text}</span>
+                                <span class="text-blue-500 font-bold">→</span>
+                                <span class="font-bold text-gray-400 min-w-[24px]">(${option.id})</span>
+                                <span class="text-gray-200">${option.text}</span>
+                            </div>
+                        `
+                    }
+                })
+                html += `</div>`
+
+                if (data.how_to_solve) {
+                    html += `<div class="text-amber-400 font-medium mb-3">💡 Strategy:</div>`
+                    html += `<div class="text-gray-300 italic">${data.how_to_solve}</div>`
+                }
+                return html
+            }
+
+            // Priority 3: MCQ Explanation Breakdown
+            const explanation = data.mcq_data?.explanation || data.explanation
+            if (explanation && typeof explanation === 'object') {
+                let html = ''
+                if (explanation.why_correct) {
+                    html += `<div class="mb-4 text-emerald-400 font-medium flex items-center gap-2">✨ Correct Answer:</div>`
+                    html += `<div class="mb-6 pl-4 border-l-2 border-emerald-500/30 text-gray-200">${explanation.why_correct}</div>`
+                }
+
+                if (explanation.why_incorrect && explanation.why_incorrect.length > 0) {
+                    html += `<div class="mb-4 text-red-400 font-medium flex items-center gap-2">❌ Why others are incorrect:</div>`
+                    html += `<div class="space-y-4">`
+                    explanation.why_incorrect.forEach((item: any) => {
+                        html += `
+                            <div class="flex gap-3 pl-4 border-l-2 border-red-500/20">
+                                <span class="font-bold text-red-500/40 min-w-[20px]">${item.option}:</span>
+                                <span class="text-gray-300 text-sm">${item.reason}</span>
+                            </div>
+                        `
+                    })
+                    html += `</div>`
+                }
+                return html || 'No information provided for this step.'
+            }
+
+            // Fallback for simple string explanations
+            return explanation || data.how_to_solve || data.the_idea || 'No information provided for this step.'
+        }
+
+        return data[type] || question[type] || 'No information provided for this step.'
+    }
 
     return (
         <div className="space-y-6">
@@ -91,8 +176,8 @@ export default function QuestionDisplay({
                     onClick={handleToggleBookmark}
                     disabled={isToggling}
                     className={`p-2 rounded-xl transition-all border flex items-center gap-2 ${isBookmarked
-                            ? 'bg-purple-600/20 border-purple-500/30 text-purple-400'
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
+                        ? 'bg-purple-600/20 border-purple-500/30 text-purple-400'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
                         }`}
                 >
                     {isToggling ? (
@@ -109,7 +194,10 @@ export default function QuestionDisplay({
             </div>
 
             {/* Question Text */}
-            <div className="p-8 bg-white/[0.03] border border-white/10 rounded-3xl shadow-2xl">
+            <div
+                className="p-8 bg-white/[0.03] border border-white/10 rounded-3xl shadow-2xl"
+                dir={getDirection(question.question_text)}
+            >
                 <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-8">
                     {question.question_text}
                 </h1>
@@ -160,7 +248,7 @@ export default function QuestionDisplay({
                     const isRevealed = revealLevels > idx
                     const canReveal = revealLevels === idx
                     const Icon = section.icon
-                    const content = data[section.type] || question[section.type] || 'No information provided for this step.'
+                    const content = getSectionContent(section.type)
 
                     return (
                         <div key={section.id} className="relative group">
@@ -197,6 +285,7 @@ export default function QuestionDisplay({
                                                 initial={{ height: 0, opacity: 0 }}
                                                 animate={{ height: 'auto', opacity: 1 }}
                                                 className="text-gray-300 leading-relaxed max-w-none"
+                                                dir={getDirection(content)}
                                             >
                                                 <div dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br/>') }} />
                                             </motion.div>

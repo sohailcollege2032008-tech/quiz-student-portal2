@@ -1,17 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Ticket, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+
+import { redeemCodeAction } from '@/app/actions/redeem-actions'
 
 export default function RedeemForm() {
     const [code, setCode] = useState('')
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
     const router = useRouter()
-    const supabase = createClient()
 
     const handleRedeem = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -19,24 +19,15 @@ export default function RedeemForm() {
         setStatus(null)
 
         try {
-            // Use the secure RPC function to redeem the code
-            const { data: bookId, error: rpcError } = await supabase
-                .rpc('redeem_book_code', { input_code: code.trim() })
+            const result = await redeemCodeAction(code)
 
-            if (rpcError) {
-                // Map common error messages
-                if (rpcError.message.includes('Invalid access code')) {
-                    throw new Error('Invalid or expired access code.')
-                }
-                if (rpcError.message.includes('already been used')) {
-                    throw new Error('This code has already been redeemed.')
-                }
-                throw new Error(rpcError.message || 'Failed to activate code. Please try again.')
+            if (result.error) {
+                throw new Error(result.error)
             }
 
             setStatus({
                 type: 'success',
-                message: `Successfully activated! Redirecting to dashboard...`
+                message: result.message || 'Success'
             })
 
             setTimeout(() => {
