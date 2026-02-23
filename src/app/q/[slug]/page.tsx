@@ -19,6 +19,8 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
 
     // 1. Fetch Question data by qr_slug
     console.log('Fetching question with slug:', slug);
+    console.log('Using Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30));
+
     const { data: question, error: qError } = await supabase
         .from('questions')
         .select(`
@@ -32,6 +34,8 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     if (qError || !question) {
         console.error('Question fetch error details:', {
             error: qError,
+            errorCode: qError?.code,
+            errorMessage: qError?.message,
             slug,
             receivedData: question
         });
