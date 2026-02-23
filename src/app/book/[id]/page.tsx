@@ -88,35 +88,38 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
 
                 {/* Topics & Questions List */}
                 <div className="space-y-12 pb-20">
-                    {topics && topics.map((topic) => (
-                        <section key={topic.id} className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
-                                    <GraduationCap className="w-4 h-4" />
+                    {topics && topics.map((topic) => {
+                        const topicQuestions = questionsByTopic[topic.id] || [];
+                        return (
+                            <section key={topic.id} className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+                                        <GraduationCap className="w-4 h-4" />
+                                    </div>
+                                    <h2 className="text-xl font-bold text-gray-100">{topic.title}</h2>
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-100">{topic.title}</h2>
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-2">
-                                {questionsByTopic[topic.id]?.map((q, idx) => (
-                                    <Link key={q.id} href={`/q/${q.qr_slug}`}>
-                                        <div className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-blue-500/30 transition-all">
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-xs font-mono text-gray-600 w-6">{(idx + 1).toString().padStart(2, '0')}</span>
-                                                <p className="text-sm text-gray-300 line-clamp-1 group-hover:text-white transition-colors">
-                                                    {q.question_text}
-                                                </p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {topicQuestions.map((q, idx) => (
+                                        <Link key={q.id} href={`/q/${q.qr_slug}`}>
+                                            <div className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-blue-500/30 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-xs font-mono text-gray-600 w-6">{(idx + 1).toString().padStart(2, '0')}</span>
+                                                    <p className="text-sm text-gray-300 line-clamp-1 group-hover:text-white transition-colors">
+                                                        {q.question_text}
+                                                    </p>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                                             </div>
-                                            <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
-                                        </div>
-                                    </Link>
-                                ))}
-                                {(!questionsByTopic[topic.id] || questionsByTopic[topic.id].length === 0) && (
-                                    <p className="text-sm text-gray-600 italic ml-11">No questions for this topic yet.</p>
-                                )}
-                            </div>
-                        </section>
-                    ))}
+                                        </Link>
+                                    ))}
+                                    {topicQuestions.length === 0 && (
+                                        <p className="text-sm text-gray-600 italic ml-11">No questions for this topic yet.</p>
+                                    )}
+                                </div>
+                            </section>
+                        );
+                    })}
 
                     {untrackedQuestions.length > 0 && (
                         <section className="space-y-4">
