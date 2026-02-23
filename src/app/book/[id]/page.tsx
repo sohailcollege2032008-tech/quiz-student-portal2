@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
+import { checkUserActivation } from '@/app/actions/auth-actions';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, BookOpen, GraduationCap, ChevronRight, HelpCircle } from 'lucide-react';
@@ -11,30 +12,20 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
     const supabase = await createClient();
 
     // 1. Get user and check activation
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: bookData } = await supabase.from('books').select('*').eq('id', id).single();
+    if (!bookData) return notFound();
+
+    const { authenticated, activated } = await checkUserActivation(id, bookData.title);
+
+    if (!authenticated) {
         redirect(`/login?returnTo=/book/${id}`);
     }
 
-    const { data: activation, error: aError } = await supabase
-        .from('user_book_activations')
-        .select('*, books(*)')
-        .eq('user_id', user.id)
-        .eq('book_id', id)
-        .maybeSingle();
-
-    if (aError) {
-        console.error('Book activation check error:', JSON.stringify(aError, null, 2));
-    }
-
-    console.log(`Activation status for user ${user.id} and book ${id}:`, !!activation);
-
-    if (!activation) {
-        // Direct to redeem if not activated
+    if (!activated) {
         redirect(`/redeem?bookId=${id}`);
     }
 
-    const book = activation.books;
+    const book = bookData;
 
     // 2. Fetch Topics
     const { data: topics } = await supabase

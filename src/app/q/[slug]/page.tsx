@@ -6,6 +6,7 @@ import QuestionDisplay from '@/components/question/QuestionDisplay';
 import { ChevronLeft, BookOpen, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { getReviewStatus } from '@/app/actions/review-actions';
+import { checkUserActivation } from '@/app/actions/auth-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,24 +56,16 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     console.log('--- DB FETCH END ---');
 
     // 2. Check if user has access (activated the book)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { authenticated, activated } = await checkUserActivation(question.book_id, question.book?.title);
+
+    if (!authenticated) {
+        // Instead of a forced server-side redirect, we could show a "Login Required" card
+        // But for now, sticking to redirect to keep it simple, but adding the returnTo
         redirect(`/login?returnTo=/q/${slug}`);
     }
 
-    const { data: activation, error: aError } = await supabase
-        .from('user_book_activations')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('book_id', question.book_id)
-        .maybeSingle();
-
-    if (aError) {
-        console.error('Activation check error:', JSON.stringify(aError, null, 2));
-    }
-
-    const isActivated = !!activation;
-    console.log(`Activation status for user ${user.id} and book ${question.book_id}:`, isActivated);
+    const isActivated = activated;
+    console.log(`Activation status for question ${question.id}:`, isActivated);
 
     // 3. Fetch initial review list status
     const initialIsInReviewList = await getReviewStatus(question.id);
