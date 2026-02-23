@@ -65,9 +65,14 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
         .select('*')
         .eq('user_id', user.id)
         .eq('book_id', question.book_id)
-        .single();
+        .maybeSingle();
+
+    if (aError) {
+        console.error('Activation check error:', JSON.stringify(aError, null, 2));
+    }
 
     const isActivated = !!activation;
+    console.log(`Activation status for user ${user.id} and book ${question.book_id}:`, isActivated);
 
     // 3. Fetch initial review list status
     const initialIsInReviewList = await getReviewStatus(question.id);

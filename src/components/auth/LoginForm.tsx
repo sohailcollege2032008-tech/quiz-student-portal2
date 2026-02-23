@@ -29,9 +29,12 @@ export default function LoginForm() {
             setError(error.message)
             setLoading(false)
         } else {
-            const returnTo = searchParams.get('returnTo') || '/dashboard'
-            router.push(returnTo)
-            router.refresh()
+            // Give extra time for cookies to settle
+            setTimeout(() => {
+                const returnTo = searchParams.get('returnTo') || '/dashboard'
+                router.push(returnTo)
+                router.refresh()
+            }, 500)
         }
     }
 

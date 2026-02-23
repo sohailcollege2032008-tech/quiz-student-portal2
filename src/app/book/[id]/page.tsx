@@ -16,12 +16,18 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
         redirect(`/login?returnTo=/book/${id}`);
     }
 
-    const { data: activation } = await supabase
+    const { data: activation, error: aError } = await supabase
         .from('user_book_activations')
         .select('*, books(*)')
         .eq('user_id', user.id)
         .eq('book_id', id)
-        .single();
+        .maybeSingle();
+
+    if (aError) {
+        console.error('Book activation check error:', JSON.stringify(aError, null, 2));
+    }
+
+    console.log(`Activation status for user ${user.id} and book ${id}:`, !!activation);
 
     if (!activation) {
         // Direct to redeem if not activated
