@@ -12,7 +12,9 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
 
     // 1. Get user and check activation
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect('/login');
+    if (!user) {
+        redirect(`/login?returnTo=/book/${id}`);
+    }
 
     const { data: activation } = await supabase
         .from('user_book_activations')

@@ -7,7 +7,7 @@ export default async function RedeemPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        redirect('/login')
+        redirect('/login?returnTo=/redeem')
     }
 
     return (

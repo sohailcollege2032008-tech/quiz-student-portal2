@@ -8,7 +8,7 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        redirect('/login')
+        redirect('/login?returnTo=/dashboard')
     }
 
     // Fetch activated books
