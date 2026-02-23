@@ -20,29 +20,39 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     const supabase = await createClient();
 
     // 1. Fetch Question data by qr_slug
-    console.log('Fetching question with slug:', slug);
-    console.log('Using Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30));
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : 'UNDEFINED';
 
+    console.log('--- DB FETCH START ---');
+    console.log('Target Slug:', slug);
+    console.log('Supabase Host:', supabaseHost);
+
+    if (!supabaseUrl || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.error('CRITICAL: Supabase environment variables are missing!');
+    }
+
+    // Simplified query to avoid join issues initially
     const { data: question, error: qError } = await supabase
         .from('questions')
-        .select(`
-      *,
-      book:books(*),
-      topic:topics(*)
-    `)
+        .select('*, books(*), topics(*)')
         .eq('qr_slug', slug)
-        .single();
+        .maybeSingle();
 
-    if (qError || !question) {
-        console.error('Question fetch error details:', {
-            error: qError,
-            errorCode: qError?.code,
-            errorMessage: qError?.message,
-            slug,
-            receivedData: question
-        });
+    if (qError) {
+        console.error('Supabase Query Error:', JSON.stringify(qError, null, 2));
         return notFound();
     }
+
+    if (!question) {
+        console.error('No question found for slug:', slug);
+        // Also log if any questions exist at all to verify table access
+        const { count } = await supabase.from('questions').select('*', { count: 'exact', head: true });
+        console.log('Total questions in table:', count);
+        return notFound();
+    }
+
+    console.log('Successfully fetched question:', question.id);
+    console.log('--- DB FETCH END ---');
 
     // 2. Check if user has access (activated the book)
     const { data: { user } } = await supabase.auth.getUser();

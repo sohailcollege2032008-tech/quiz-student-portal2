@@ -91,7 +91,7 @@ export default async function DashboardPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {activations && activations.length > 0 ? (
                             activations.map((act) => (
-                                <div key={act.id} className="group cursor-pointer">
+                                <Link key={act.id} href={`/book/${act.book_id}`} className="group cursor-pointer">
                                     <div className="p-5 bg-white/[0.03] border border-white/10 rounded-2xl hover:bg-white/[0.05] hover:border-blue-500/30 transition-all duration-300">
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="w-12 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg flex items-center justify-center">
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
                                             <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))
                         ) : (
                             <div className="col-span-full py-20 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center">
