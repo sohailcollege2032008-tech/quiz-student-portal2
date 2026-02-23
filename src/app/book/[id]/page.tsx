@@ -47,9 +47,10 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
     const untrackedQuestions: typeof questions = [];
 
     questions?.forEach(q => {
-        if (q.topic_id) {
-            if (!questionsByTopic[q.topic_id]) questionsByTopic[q.topic_id] = [];
-            questionsByTopic[q.topic_id].push(q);
+        const topicId = q.topic_id;
+        if (topicId) {
+            if (!questionsByTopic[topicId]) questionsByTopic[topicId] = [];
+            questionsByTopic[topicId].push(q);
         } else {
             untrackedQuestions.push(q);
         }
