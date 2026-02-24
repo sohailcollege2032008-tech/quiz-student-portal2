@@ -23,11 +23,11 @@ export async function updateSession(request: NextRequest) {
                 // Update Request for downstream (Server Components)
                 cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
 
-                // Update Response for browser - Force 10-year persistence
+                // Update Response for browser - Force 10-year persistence EXCEPT for deletions
                 cookiesToSet.forEach(({ name, value, options }) =>
                     supabaseResponse.cookies.set(name, value, {
                         ...options,
-                        maxAge: 315360000, // 10 years
+                        maxAge: options?.maxAge === 0 ? 0 : 315360000, // 10 years or delete
                         sameSite: 'lax',
                         path: '/',
                         secure: process.env.NODE_ENV === 'production',
@@ -77,7 +77,7 @@ export async function updateSession(request: NextRequest) {
         // Supabase sets maxAge: 0 to delete a cookie
         const isBeingDeleted = responseCookie && responseCookie.maxAge === 0;
 
-        // ONLY promote if we have a user and supabase didn't already set/refresh this cookie in the current response
+        // ONLY promote if we have a user and supabase didn't already set/refresh/delete this cookie in the current response
         if (user && !isBeingDeleted && !responseCookie) {
             supabaseResponse.cookies.set(cookie.name, cookie.value, {
                 maxAge: 315360000, // 10 years
