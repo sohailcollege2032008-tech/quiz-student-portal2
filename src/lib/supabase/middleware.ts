@@ -34,31 +34,44 @@ export async function updateSession(request: NextRequest) {
     )
 
     // -------------------------------------------------------------------------
-    // SSPU OPTIMIZATION: Only refresh the session on main navigations.
-    // Parallel requests (prefetch, data fetch) can trigger "Single Session" 
-    // invalidations if they all try to refresh at once.
+    // SURGICAL FIX: REFRESH THROTTLING & TOKEN PROTECTION
     // -------------------------------------------------------------------------
-    const isNavigation = request.headers.get('accept')?.includes('text/html');
-    const isPrefetch = request.headers.get('x-nextjs-data') || request.headers.get('purpose') === 'prefetch';
-
+    const refreshLock = request.cookies.get('sb-refresh-lock');
     let user = null;
-    if (isNavigation && !isPrefetch) {
-        // IMPORTANT: Refresh auth token ONLY on main navigations
+
+    // Check if we have a valid session in cookies without rotating tokens
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // Only trust the lock if we actually FOUND a valid session
+    if (refreshLock && session?.user) {
+        user = session.user;
+    } else {
+        // No lock OR no valid session found -> Perform a real refresh
         const { data } = await supabase.auth.getUser();
         user = data.user;
+
+        if (user) {
+            // Success! Set a 30-second lock to prevent racing rotations
+            supabaseResponse.cookies.set('sb-refresh-lock', 'true', {
+                maxAge: 30,
+                path: '/',
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+            });
+        }
     }
 
-    // HARDEN: Only promote cookies if we have a valid authenticated user.
-    // AND: Avoid resurrecting deleted cookies (those with maxAge: 0).
+    // HARDEN: Aggressively promote ALL auth cookies to 10 years
+    // CRITICAL: Only set if the cookie ISN'T already in the response to avoid overwriting fresh tokens.
     const allAuthCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
-
     allAuthCookies.forEach(cookie => {
         const responseCookie = supabaseResponse.cookies.get(cookie.name);
         const isBeingDeleted = responseCookie?.maxAge === 0;
 
+        // ONLY promote if we have a user and supabase didn't already set this cookie in the response
         if (user && !isBeingDeleted && !responseCookie) {
             supabaseResponse.cookies.set(cookie.name, cookie.value, {
-                maxAge: 315360000,
+                maxAge: 315360000, // 10 years
                 sameSite: 'lax',
                 path: '/',
                 secure: process.env.NODE_ENV === 'production',

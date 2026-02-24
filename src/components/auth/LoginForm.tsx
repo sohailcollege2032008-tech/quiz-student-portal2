@@ -28,7 +28,8 @@ export default function LoginForm() {
             setError(result.error)
             setLoading(false)
         } else {
-            // Success! Set a small delay for cookies to settle on mobile
+            // Success! Set a slightly longer delay for cookies to settle on mobile
+            // and ensure the refresh lock is respected.
             setTimeout(() => {
                 const returnTo = searchParams.get('returnTo')
                 if (returnTo) {
@@ -36,7 +37,7 @@ export default function LoginForm() {
                 } else {
                     window.location.reload()
                 }
-            }, 800)
+            }, 1000)
         }
     }
 
