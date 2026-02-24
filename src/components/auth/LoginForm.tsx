@@ -33,15 +33,10 @@ export default function LoginForm() {
             setTimeout(() => {
                 const returnTo = searchParams.get('returnTo')
                 if (returnTo) {
-                    router.push(returnTo)
-                    router.refresh()
+                    window.location.href = returnTo
                 } else {
-                    // If we're inline (e.g. on a question page), just refresh to unlock
-                    router.refresh()
-                    // Fallback to dashboard if not on a specific page
-                    if (window.location.pathname === '/login') {
-                        router.push('/dashboard')
-                    }
+                    // Force a full reload to ensure the server component sees the new cookies
+                    window.location.reload()
                 }
             }, 500)
         }

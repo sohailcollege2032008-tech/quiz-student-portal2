@@ -32,9 +32,10 @@ export default function RedeemForm() {
 
             setTimeout(() => {
                 if (window.location.pathname === '/redeem') {
-                    router.push('/dashboard')
+                    window.location.href = '/dashboard'
                 } else {
-                    router.refresh()
+                    // Force a full reload to ensure the server component reveals content
+                    window.location.reload()
                 }
             }, 2000)
 

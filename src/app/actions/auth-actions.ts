@@ -2,11 +2,21 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
 
 export async function checkUserActivation(bookId: string, bookTitle: string) {
     try {
         const supabase = await createClient();
+        const cookieStore = await cookies();
         const { data: { user } } = await supabase.auth.getUser();
+
+        // -------------------------------------------------------------------------
+        // DIAGNOSTIC LOGGING
+        // -------------------------------------------------------------------------
+        const sbCookies = (await cookieStore).getAll().filter(c => c.name.startsWith('sb-'));
+        console.log(`[AUTH-CHECK] User IDs found: ${user?.id || 'NONE'}`);
+        console.log(`[AUTH-CHECK] Auth Cookies Present: ${sbCookies.map(c => c.name).join(', ')}`);
+        // -------------------------------------------------------------------------
 
         if (!user) {
             return { authenticated: false, activated: false };

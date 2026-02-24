@@ -38,19 +38,24 @@ export async function updateSession(request: NextRequest) {
     await supabase.auth.getUser()
 
     // -------------------------------------------------------------------------
-    // AGGRESSIVE COOKIE PROMOTION (ETERNAL SESSION)
+    // ETENRAL SESSION ENFORCEMENT (FIXED)
     // -------------------------------------------------------------------------
-    // We search for any Supabase auth cookies in the request and proactively
-    // promote them to 10-year "Eternal" cookies in the response.
-    // This handles cases where the client library might set a session-only cookie.
-    const authCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
-    authCookies.forEach(cookie => {
-        supabaseResponse.cookies.set(cookie.name, cookie.value, {
-            maxAge: 315360000, // 10 years
-            sameSite: 'lax',
-            path: '/',
-            secure: process.env.NODE_ENV === 'production',
-        });
+    // Promote ALL Supabase auth cookies in the response to 10-year lifespan.
+    // We check the request cookies, and if they are not already in the response 
+    // (meaning Supabase didn't just refresh them), we add them to the response with 
+    // the eternal settings.
+    const allReqCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
+
+    allReqCookies.forEach(reqCookie => {
+        // Only promote if Supabase hasn't already set a new value in the response
+        if (!supabaseResponse.cookies.get(reqCookie.name)) {
+            supabaseResponse.cookies.set(reqCookie.name, reqCookie.value, {
+                maxAge: 315360000, // 10 years
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+            });
+        }
     });
 
     return supabaseResponse
