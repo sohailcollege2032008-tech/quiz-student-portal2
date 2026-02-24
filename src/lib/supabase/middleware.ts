@@ -33,8 +33,20 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // IMPORTANT: Refresh auth token
-    const { data: { user } } = await supabase.auth.getUser()
+    // -------------------------------------------------------------------------
+    // SSPU OPTIMIZATION: Only refresh the session on main navigations.
+    // Parallel requests (prefetch, data fetch) can trigger "Single Session" 
+    // invalidations if they all try to refresh at once.
+    // -------------------------------------------------------------------------
+    const isNavigation = request.headers.get('accept')?.includes('text/html');
+    const isPrefetch = request.headers.get('x-nextjs-data') || request.headers.get('purpose') === 'prefetch';
+
+    let user = null;
+    if (isNavigation && !isPrefetch) {
+        // IMPORTANT: Refresh auth token ONLY on main navigations
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+    }
 
     // HARDEN: Only promote cookies if we have a valid authenticated user.
     // AND: Avoid resurrecting deleted cookies (those with maxAge: 0).
@@ -42,8 +54,6 @@ export async function updateSession(request: NextRequest) {
 
     allAuthCookies.forEach(cookie => {
         const responseCookie = supabaseResponse.cookies.get(cookie.name);
-
-        // If the cookie is marked for deletion in the response, do NOT promote it.
         const isBeingDeleted = responseCookie?.maxAge === 0;
 
         if (user && !isBeingDeleted && !responseCookie) {
