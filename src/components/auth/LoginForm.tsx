@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { loginAction } from '@/app/actions/login-actions'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react'
 
@@ -11,53 +11,37 @@ export default function LoginForm() {
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const router = useRouter()
     const searchParams = useSearchParams()
-    const supabase = createClient()
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
+        const formData = new FormData()
+        formData.append('email', email)
+        formData.append('password', password)
 
-        if (error) {
-            setError(error.message)
+        const result = await loginAction(formData)
+
+        if (result.error) {
+            setError(result.error)
             setLoading(false)
         } else {
-            // Give extra time for cookies to settle
+            // Success! Set a small delay for cookies to settle on mobile
             setTimeout(() => {
                 const returnTo = searchParams.get('returnTo')
                 if (returnTo) {
                     window.location.href = returnTo
                 } else {
-                    // Force a full reload to ensure the server component sees the new cookies
                     window.location.reload()
                 }
-            }, 500)
+            }, 800)
         }
     }
 
     const handleSignUp = async () => {
-        setLoading(true)
-        setError(null)
-
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-        })
-
-        if (error) {
-            setError(error.message)
-            setLoading(false)
-        } else {
-            setError('Check your email for the confirmation link!')
-            setLoading(false)
-        }
+        setError('Sign up is temporarily disabled. Please contact the administrator.')
     }
 
     return (

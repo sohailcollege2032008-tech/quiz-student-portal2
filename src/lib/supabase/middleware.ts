@@ -34,13 +34,19 @@ export async function updateSession(request: NextRequest) {
     )
 
     // IMPORTANT: Refresh auth token
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // HARDEN: Proactively promote ALL existing auth cookies in the request 
-    // to "Eternal" status in the response if they aren't already being updated.
+    // HARDEN: Only promote cookies if we have a valid authenticated user.
+    // AND: Avoid resurrecting deleted cookies (those with maxAge: 0).
     const allAuthCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
+
     allAuthCookies.forEach(cookie => {
-        if (!supabaseResponse.cookies.get(cookie.name)) {
+        const responseCookie = supabaseResponse.cookies.get(cookie.name);
+
+        // If the cookie is marked for deletion in the response, do NOT promote it.
+        const isBeingDeleted = responseCookie?.maxAge === 0;
+
+        if (user && !isBeingDeleted && !responseCookie) {
             supabaseResponse.cookies.set(cookie.name, cookie.value, {
                 maxAge: 315360000,
                 sameSite: 'lax',
@@ -52,8 +58,14 @@ export async function updateSession(request: NextRequest) {
 
     // CACHE HARDENING: Prevent In-App browsers from caching stale login states
     const path = request.nextUrl.pathname;
-    if (path.startsWith('/q/') || path.startsWith('/book/') || path === '/login' || path === '/dashboard') {
-        supabaseResponse.headers.set('Cache-Control', 'no-store, max-age=0');
+    const isSensitivePath = path === '/dashboard' ||
+        path === '/login' ||
+        path === '/redeem' ||
+        path.startsWith('/q/') ||
+        path.startsWith('/book/');
+
+    if (isSensitivePath) {
+        supabaseResponse.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     }
 
     return supabaseResponse
