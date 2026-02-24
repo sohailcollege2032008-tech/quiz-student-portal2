@@ -6,32 +6,36 @@ export async function updateSession(request: NextRequest) {
         request,
     })
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return request.cookies.getAll()
-                },
-                setAll(cookiesToSet) {
-                    // Update Request for downstream (Server Components)
-                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-                    // Update Response for browser
-                    cookiesToSet.forEach(({ name, value, options }) =>
-                        supabaseResponse.cookies.set(name, value, {
-                            ...options,
-                            maxAge: 315360000, // 10 years
-                            sameSite: 'lax',
-                            path: '/',
-                            secure: process.env.NODE_ENV === 'production',
-                        })
-                    )
-                },
+    // Safety check: Avoid crashing the whole site if env vars are missing in Edge Runtime
+    if (!supabaseUrl || !supabaseAnonKey) {
+        return supabaseResponse;
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+            getAll() {
+                return request.cookies.getAll();
             },
-        }
-    )
+            setAll(cookiesToSet) {
+                // Update Request for downstream (Server Components)
+                cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+
+                // Update Response for browser - Force 10-year persistence
+                cookiesToSet.forEach(({ name, value, options }) =>
+                    supabaseResponse.cookies.set(name, value, {
+                        ...options,
+                        maxAge: 315360000, // 10 years
+                        sameSite: 'lax',
+                        path: '/',
+                        secure: process.env.NODE_ENV === 'production',
+                    })
+                );
+            },
+        },
+    });
 
     // -------------------------------------------------------------------------
     // SURGICAL FIX: REFRESH THROTTLING & TOKEN PROTECTION
@@ -39,26 +43,30 @@ export async function updateSession(request: NextRequest) {
     const refreshLock = request.cookies.get('sb-refresh-lock');
     let user = null;
 
-    // Check if we have a valid session in cookies without rotating tokens
-    const { data: { session } } = await supabase.auth.getSession();
+    try {
+        // Check if we have a valid session in cookies without rotating tokens
+        const { data: { session } } = await supabase.auth.getSession();
 
-    // Only trust the lock if we actually FOUND a valid session
-    if (refreshLock && session?.user) {
-        user = session.user;
-    } else {
-        // No lock OR no valid session found -> Perform a real refresh
-        const { data } = await supabase.auth.getUser();
-        user = data.user;
+        // Only trust the lock if we actually FOUND a valid session
+        if (refreshLock && session?.user) {
+            user = session.user;
+        } else {
+            // No lock OR no valid session found -> Perform a real refresh
+            const { data } = await supabase.auth.getUser();
+            user = data.user;
 
-        if (user) {
-            // Success! Set a 30-second lock to prevent racing rotations
-            supabaseResponse.cookies.set('sb-refresh-lock', 'true', {
-                maxAge: 30,
-                path: '/',
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-            });
+            if (user) {
+                // Success! Set a 30-second lock to prevent racing rotations
+                supabaseResponse.cookies.set('sb-refresh-lock', 'true', {
+                    maxAge: 30,
+                    path: '/',
+                    sameSite: 'lax',
+                    secure: process.env.NODE_ENV === 'production',
+                });
+            }
         }
+    } catch (e) {
+        console.error('Middleware Auth Error:', e);
     }
 
     // HARDEN: Aggressively promote ALL auth cookies to 10 years
@@ -66,9 +74,10 @@ export async function updateSession(request: NextRequest) {
     const allAuthCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
     allAuthCookies.forEach(cookie => {
         const responseCookie = supabaseResponse.cookies.get(cookie.name);
-        const isBeingDeleted = responseCookie?.maxAge === 0;
+        // Supabase sets maxAge: 0 to delete a cookie
+        const isBeingDeleted = responseCookie && responseCookie.maxAge === 0;
 
-        // ONLY promote if we have a user and supabase didn't already set this cookie in the response
+        // ONLY promote if we have a user and supabase didn't already set/refresh this cookie in the current response
         if (user && !isBeingDeleted && !responseCookie) {
             supabaseResponse.cookies.set(cookie.name, cookie.value, {
                 maxAge: 315360000, // 10 years
