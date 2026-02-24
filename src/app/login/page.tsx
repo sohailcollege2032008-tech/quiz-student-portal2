@@ -1,14 +1,14 @@
 import { Suspense } from 'react'
 import LoginForm from '@/components/auth/LoginForm'
 import { Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export default async function LoginPage() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const cookieStore = await cookies()
+    const accessCode = cookieStore.get('student-access-code')
 
-    if (user) {
+    if (accessCode) {
         redirect('/dashboard')
     }
 

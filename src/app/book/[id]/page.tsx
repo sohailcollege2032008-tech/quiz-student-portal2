@@ -1,54 +1,62 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound, redirect } from 'next/navigation';
-import { checkUserActivation } from '@/app/actions/auth-actions';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, BookOpen, GraduationCap, ChevronRight, HelpCircle } from 'lucide-react';
 import LoginForm from '@/components/auth/LoginForm';
-import RedeemForm from '@/components/auth/RedeemForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function BookDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const accessCode = cookieStore.get('student-access-code')?.value;
 
-    // 1. Get user and check activation
-    const { data: bookData } = await supabase.from('books').select('*').eq('id', id).single();
-    if (!bookData) return notFound();
+    if (!accessCode) {
+        redirect('/login');
+    }
 
-    const { authenticated, activated } = await checkUserActivation(id, bookData.title);
+    const supabase = createAdminClient();
 
-    if (!authenticated) {
+    // 1. Fetch Book info
+    const { data: book } = await supabase.from('books').select('*').eq('id', id).single();
+    if (!book) return notFound();
+
+    // 2. Verify that the student's access code actually unlocks THIS book
+    const { data: accessData, error: accessError } = await supabase
+        .from('access_codes')
+        .select('id')
+        .eq('code', accessCode)
+        .eq('book_id', id)
+        .single();
+
+    if (accessError || !accessData) {
+        // This student has a valid code but NOT for this book.
+        // In a code-only system, we just tell them they don't have access.
         return (
             <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 flex flex-col items-center justify-center space-y-8">
-                <div className="text-center space-y-2">
-                    <h2 className="text-3xl font-bold text-white">Login Required</h2>
-                    <p className="text-gray-400">Sign in to access <strong>{bookData.title}</strong></p>
+                <div className="text-center space-y-4 max-w-md">
+                    <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                        <BookOpen className="w-10 h-10 text-red-500" />
+                    </div>
+                    <h2 className="text-3xl font-bold">Access Required</h2>
+                    <p className="text-gray-400">Your current access code does not include <strong>{book.title}</strong>. Please enter the code for this book.</p>
+                    <Link href="/login" className="block p-4 bg-blue-600 rounded-xl font-bold">Enter Another Code</Link>
+                    <Link href="/dashboard" className="block text-sm text-gray-500 hover:underline">Back to Dashboard</Link>
                 </div>
-                <LoginForm />
             </div>
         );
     }
 
-    if (!activated) {
-        return (
-            <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 flex flex-col items-center justify-center space-y-8">
-                <RedeemForm />
-            </div>
-        );
-    }
-
-    const book = bookData;
-
-    // 2. Fetch Topics
+    // 3. Fetch Topics
     const { data: topics } = await supabase
         .from('topics')
         .select('*')
         .eq('book_id', id)
         .order('created_at', { ascending: true });
 
-    // 3. Fetch Questions
+    // 4. Fetch Questions
     const { data: questions } = await supabase
         .from('questions')
         .select('id, question_text, qr_slug, topic_id')
@@ -56,8 +64,8 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
         .order('created_at', { ascending: true });
 
     // Group questions by topic
-    const questionsByTopic: Record<string, typeof questions> = {};
-    const untrackedQuestions: typeof questions = [];
+    const questionsByTopic: Record<string, any[]> = {};
+    const untrackedQuestions: any[] = [];
 
     questions?.forEach(q => {
         const topicId = q.topic_id;
@@ -82,7 +90,7 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
                             </Button>
                         </Link>
                         <div className="flex items-center gap-4">
-                            <div className="w-16 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-xl flex items-center justify-center">
+                            <div className="w-16 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-xl flex items-center justify-center border border-white/10">
                                 <span className="text-[10px] font-bold uppercase tracking-widest transform -rotate-90">STUDY</span>
                             </div>
                             <div>
@@ -91,9 +99,9 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
                         <BookOpen className="w-3.5 h-3.5" />
-                        ACTIVE LICENSE
+                        LIFETIME ACCESS
                     </div>
                 </div>
 
@@ -158,13 +166,6 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
                                 ))}
                             </div>
                         </section>
-                    )}
-
-                    {(!topics || topics.length === 0) && untrackedQuestions.length === 0 && (
-                        <div className="text-center py-20 border border-dashed border-white/5 rounded-2xl">
-                            <BookOpen className="w-12 h-12 text-gray-700 mx-auto mb-4" />
-                            <p className="text-gray-500">This book has no questions or topics yet.</p>
-                        </div>
                     )}
                 </div>
             </div>
