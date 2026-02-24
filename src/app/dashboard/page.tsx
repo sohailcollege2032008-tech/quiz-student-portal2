@@ -1,14 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Book, Bookmark, LogOut, ChevronRight, User, Ticket } from 'lucide-react'
+import LoginForm from '@/components/auth/LoginForm'
 
 export default async function DashboardPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        redirect('/login?returnTo=/dashboard')
+        return (
+            <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+                <div className="max-w-md w-full">
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-white mb-2">Login Required</h1>
+                        <p className="text-gray-400">Sign in to access your dashboard</p>
+                    </div>
+                    <LoginForm />
+                </div>
+            </main>
+        )
     }
 
     // Fetch activated books

@@ -15,14 +15,10 @@ export async function updateSession(request: NextRequest) {
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    // Update Request for downstream
+                    // Update Request for downstream (Server Components)
                     cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
 
-                    // Update Response
-                    supabaseResponse = NextResponse.next({
-                        request,
-                    })
-
+                    // Update Response for browser
                     cookiesToSet.forEach(({ name, value, options }) =>
                         supabaseResponse.cookies.set(name, value, {
                             ...options,
