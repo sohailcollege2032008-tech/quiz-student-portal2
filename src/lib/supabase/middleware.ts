@@ -37,5 +37,21 @@ export async function updateSession(request: NextRequest) {
     // This is required to refresh the auth token if it's expired.
     await supabase.auth.getUser()
 
+    // -------------------------------------------------------------------------
+    // AGGRESSIVE COOKIE PROMOTION (ETERNAL SESSION)
+    // -------------------------------------------------------------------------
+    // We search for any Supabase auth cookies in the request and proactively
+    // promote them to 10-year "Eternal" cookies in the response.
+    // This handles cases where the client library might set a session-only cookie.
+    const authCookies = request.cookies.getAll().filter(c => c.name.startsWith('sb-'));
+    authCookies.forEach(cookie => {
+        supabaseResponse.cookies.set(cookie.name, cookie.value, {
+            maxAge: 315360000, // 10 years
+            sameSite: 'lax',
+            path: '/',
+            secure: process.env.NODE_ENV === 'production',
+        });
+    });
+
     return supabaseResponse
 }
