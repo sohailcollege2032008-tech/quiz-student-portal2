@@ -25,11 +25,10 @@ export async function loginAction(formData: FormData) {
             return { error: error.message };
         }
 
-        // EMERGENCY FIX: Set the refresh lock immediately upon login.
-        // Return success
         return { success: true };
     } catch (err: any) {
         console.error('Login action error:', err);
-        return { error: 'An unexpected error occurred during login' };
+        // Expose the error message for debugging the production failure
+        return { error: `Server Error: ${err?.message || 'Unknown error'}` };
     }
 }
