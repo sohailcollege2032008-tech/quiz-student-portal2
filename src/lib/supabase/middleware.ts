@@ -3,13 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
-        request,
-    })
+        request: {
+            headers: request.headers,
+        },
+    });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Safety check: Avoid crashing the whole site if env vars are missing in Edge Runtime
     if (!supabaseUrl || !supabaseAnonKey) {
         return supabaseResponse;
     }
@@ -20,14 +21,19 @@ export async function updateSession(request: NextRequest) {
                 return request.cookies.getAll();
             },
             setAll(cookiesToSet) {
-                // Update Request for downstream (Server Components)
+                // 1. Update request cookies for downstream (Server Components)
                 cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
 
-                // Update Response for browser - Force 10-year persistence EXCEPT for deletions
+                // 2. Re-create response to include the updated request headers
+                supabaseResponse = NextResponse.next({
+                    request,
+                });
+
+                // 3. Update response cookies for browser browser - respect deletions
                 cookiesToSet.forEach(({ name, value, options }) =>
                     supabaseResponse.cookies.set(name, value, {
                         ...options,
-                        maxAge: options?.maxAge === 0 ? 0 : 315360000, // 10 years or delete
+                        maxAge: options?.maxAge === 0 ? 0 : 315360000,
                         sameSite: 'lax',
                         path: '/',
                         secure: process.env.NODE_ENV === 'production',

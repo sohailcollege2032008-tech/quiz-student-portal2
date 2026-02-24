@@ -1,8 +1,17 @@
 import { Suspense } from 'react'
 import LoginForm from '@/components/auth/LoginForm'
 import { Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
-export default function LoginPage() {
+export default async function LoginPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+        redirect('/dashboard')
+    }
+
     return (
         <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden">
             {/* Background Orbs */}
