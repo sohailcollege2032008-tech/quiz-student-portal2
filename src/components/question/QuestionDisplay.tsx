@@ -9,12 +9,8 @@ import {
     Circle,
     Lightbulb,
     BookOpen,
-    CheckCircle,
-    Bookmark,
-    BookmarkCheck,
-    Loader2
+    CheckCircle
 } from 'lucide-react'
-import { toggleReviewListItem } from '@/app/actions/review-actions'
 
 interface QuestionDisplayProps {
     question: any
@@ -28,8 +24,6 @@ export default function QuestionDisplay({
     initialIsInReviewList = false
 }: QuestionDisplayProps) {
     const [revealLevels, setRevealLevels] = useState<number>(0)
-    const [isBookmarked, setIsBookmarked] = useState(initialIsInReviewList)
-    const [isToggling, setIsToggling] = useState(false)
 
     // Helper to detect if text contains Arabic characters
     const getDirection = (text: string) => {
@@ -45,17 +39,6 @@ export default function QuestionDisplay({
         }
     }, [revealLevels, question])
 
-    const handleToggleBookmark = async () => {
-        setIsToggling(true)
-        try {
-            await toggleReviewListItem(question.id)
-            setIsBookmarked(!isBookmarked)
-        } catch (error) {
-            console.error('Failed to toggle bookmark:', error)
-        } finally {
-            setIsToggling(false)
-        }
-    }
 
     if (!isActivated) {
         return (
@@ -171,26 +154,6 @@ export default function QuestionDisplay({
                         {new Date(question.created_at).toLocaleDateString()}
                     </span>
                 </div>
-
-                <button
-                    onClick={handleToggleBookmark}
-                    disabled={isToggling}
-                    className={`p-2 rounded-xl transition-all border flex items-center gap-2 ${isBookmarked
-                        ? 'bg-purple-600/20 border-purple-500/30 text-purple-400'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'
-                        }`}
-                >
-                    {isToggling ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : isBookmarked ? (
-                        <BookmarkCheck className="w-5 h-5" />
-                    ) : (
-                        <Bookmark className="w-5 h-5" />
-                    )}
-                    <span className="text-sm font-medium hidden sm:inline">
-                        {isBookmarked ? 'In Review List' : 'Add to Review'}
-                    </span>
-                </button>
             </div>
 
             {/* Question Text */}

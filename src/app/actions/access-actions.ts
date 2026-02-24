@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
@@ -57,5 +58,5 @@ export async function verifyAccessCode(code: string) {
 export async function logout() {
     const cookieStore = await cookies()
     cookieStore.delete('student-access-code')
-    return { success: true }
+    redirect('/login')
 }
