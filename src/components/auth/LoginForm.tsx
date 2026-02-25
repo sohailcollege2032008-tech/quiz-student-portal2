@@ -65,7 +65,14 @@ export default function LoginForm({ isInline = false }: { isInline?: boolean }) 
                 })
                 if (signUpError) throw signUpError
                 setSuccess(true)
-                setError('Check your email for the confirmation link!')
+                // If email confirmation is disabled, user is logged in immediately
+                const currentUser = await supabase.auth.getUser()
+                if (currentUser.data.user) {
+                    const returnTo = searchParams.get('returnTo') || '/dashboard'
+                    window.location.href = returnTo
+                } else {
+                    setError('Check your email for the confirmation link!')
+                }
             } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({
                     email,
@@ -73,7 +80,8 @@ export default function LoginForm({ isInline = false }: { isInline?: boolean }) 
                 })
                 if (signInError) throw signInError
                 setSuccess(true)
-                window.location.reload()
+                const returnTo = searchParams.get('returnTo') || '/dashboard'
+                window.location.href = returnTo
             }
         } catch (err: any) {
             setError(err.message)
