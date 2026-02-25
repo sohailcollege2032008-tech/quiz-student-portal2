@@ -9,8 +9,11 @@ import {
     Circle,
     Lightbulb,
     BookOpen,
-    CheckCircle
+    CheckCircle,
+    Star,
+    Loader2
 } from 'lucide-react'
+import { toggleReviewQuestion } from '@/app/actions/student-actions'
 
 interface QuestionDisplayProps {
     question: any
@@ -24,6 +27,8 @@ export default function QuestionDisplay({
     initialIsInReviewList = false
 }: QuestionDisplayProps) {
     const [revealLevels, setRevealLevels] = useState<number>(0)
+    const [isBookmarked, setIsBookmarked] = useState(initialIsInReviewList)
+    const [bookmarking, setBookmarking] = useState(false)
 
     // Helper to detect if text contains Arabic characters
     const getDirection = (text: string) => {
@@ -65,6 +70,10 @@ export default function QuestionDisplay({
     ]
 
     const getSectionContent = (type: string) => {
+        // Correct data paths based on database structure
+        const mcqData = data.mcq_data;
+        const explanation = mcqData?.explanation || data.explanation;
+
         if (type === 'explanation') {
             // Priority 1: True/False Explanation
             if (question.type === 'tf' && data.tf_data) {
@@ -110,33 +119,43 @@ export default function QuestionDisplay({
                 return html
             }
 
-            // Priority 3: MCQ Explanation Breakdown
-            const explanation = data.mcq_data?.explanation || data.explanation
+            // Priority 3: MCQ Explanation Breakdown (Detailed Object)
             if (explanation && typeof explanation === 'object') {
                 let html = ''
+
+                // Show Correct Answer section as in screenshot
                 if (explanation.why_correct) {
-                    html += `<div class="mb-4 text-emerald-400 font-medium flex items-center gap-2">✨ Correct Answer:</div>`
-                    html += `<div class="mb-6 pl-4 border-l-2 border-emerald-500/30 text-gray-200">${explanation.why_correct}</div>`
+                    const correctId = mcqData?.correct_answer || mcqData?.correct_id;
+                    const correctLabel = correctId ? `: ${correctId}` : '';
+                    html += `<div class="mb-2"><div class="flex items-center gap-2 text-emerald-400 font-bold"><span class="text-lg">✨</span><span>Correct Answer${correctLabel}</span></div><div class="text-gray-200 leading-tight pl-3 border-l border-emerald-500/20">${explanation.why_correct}</div></div>`
                 }
 
-                if (explanation.why_incorrect && explanation.why_incorrect.length > 0) {
-                    html += `<div class="mb-4 text-red-400 font-medium flex items-center gap-2">❌ Why others are incorrect:</div>`
-                    html += `<div class="space-y-4">`
+                if (explanation.why_incorrect && Array.isArray(explanation.why_incorrect)) {
+                    html += `<div class="mt-2"><div class="flex items-center gap-2 text-red-400 font-bold mb-1"><span class="text-lg">❌</span><span>Why others are incorrect:</span></div><div class="space-y-0.5">`
                     explanation.why_incorrect.forEach((item: any) => {
-                        html += `
-                            <div class="flex gap-3 pl-4 border-l-2 border-red-500/20">
-                                <span class="font-bold text-red-500/40 min-w-[20px]">${item.option}:</span>
-                                <span class="text-gray-300 text-sm">${item.reason}</span>
-                            </div>
-                        `
+                        html += `<div class="flex gap-3 group"><div class="font-bold text-red-500/40 mt-1 min-w-[24px] group-hover:text-red-500/60 transition-colors uppercase">${item.option}:</div><div class="text-gray-300 text-[15px] leading-tight pl-3 border-l border-red-500/10">${item.reason}</div></div>`
                     })
-                    html += `</div>`
+                    html += `</div></div>`
                 }
-                return html || 'No information provided for this step.'
+                return html || 'No detailed explanation provided for this step.'
+            }
+
+            // Priority 4: Simple MCQ Correctness (if no text explanation)
+            if (question.type === 'mcq' && (mcqData?.correct_answer || mcqData?.correct_id)) {
+                const correctId = mcqData?.correct_answer || mcqData?.correct_id;
+                return `
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold mb-3">
+                            <span class="text-lg">✨</span>
+                            <span>Correct Answer: ${correctId}</span>
+                        </div>
+                        ${explanation ? `<div class="text-gray-300 leading-relaxed pl-4 border-l border-emerald-500/20">${explanation}</div>` : ''}
+                    </div>
+                `
             }
 
             // Fallback for simple string explanations
-            return explanation || data.how_to_solve || data.the_idea || 'No information provided for this step.'
+            return (typeof explanation === 'string' ? explanation : null) || 'No detailed solution provided for this step.'
         }
 
         return data[type] || question[type] || 'No information provided for this step.'
@@ -154,6 +173,27 @@ export default function QuestionDisplay({
                         {new Date(question.created_at).toLocaleDateString()}
                     </span>
                 </div>
+
+                <button
+                    onClick={async () => {
+                        setBookmarking(true)
+                        const res = await toggleReviewQuestion(question.id)
+                        if (res.success) {
+                            setIsBookmarked(res.action === 'added')
+                        }
+                        setBookmarking(false)
+                    }}
+                    disabled={bookmarking}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${isBookmarked
+                        ? 'bg-amber-500/20 border-amber-500/30 text-amber-500'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                        }`}
+                >
+                    {bookmarking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className={`w-4 h-4 ${isBookmarked ? 'fill-amber-500' : ''}`} />}
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                        {isBookmarked ? 'Bookmarked' : 'Add to Review'}
+                    </span>
+                </button>
             </div>
 
             {/* Question Text */}
