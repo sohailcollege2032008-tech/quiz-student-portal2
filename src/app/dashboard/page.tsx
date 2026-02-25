@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { Book, Bookmark, LogOut, ChevronRight, User, Ticket, Settings } from 'lucide-react'
+import { Book, Bookmark, LogIn, LogOut, ChevronRight, User, Ticket, Settings } from 'lucide-react'
 import { logout } from '@/app/actions/access-actions'
 import LoginForm from '@/components/auth/LoginForm'
 import { createClient } from '@/lib/supabase/server'
@@ -76,13 +76,18 @@ export default async function DashboardPage() {
                             </div>
                         )}
 
-                        {user && (
+                        {user ? (
                             <form action={logout}>
                                 <button type="submit" className="flex items-center gap-2 px-3 py-1.5 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-all text-gray-400 text-sm group">
                                     <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                                     <span>Exit Portal</span>
                                 </button>
                             </form>
+                        ) : (
+                            <Link href="/login" className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all text-sm group shadow-lg shadow-blue-500/20 active:scale-95">
+                                <LogIn className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                <span>تسجيل الدخول</span>
+                            </Link>
                         )}
                     </div>
                 </div>
