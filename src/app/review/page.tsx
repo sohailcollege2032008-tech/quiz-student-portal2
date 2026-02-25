@@ -18,11 +18,12 @@ export default async function ReviewPage() {
     const supabaseAdmin = createAdminClient()
 
     // Fetch review list with joined questions, books, and topics
-    const { data: reviewItems } = await supabaseAdmin
+    const { data: reviewItems, error } = await supabaseAdmin
         .from('review_list')
         .select(`
             id,
-            created_at,
+            added_at,
+            question_id,
             questions (
                 id,
                 question_text,
@@ -32,7 +33,11 @@ export default async function ReviewPage() {
             )
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('added_at', { ascending: false })
+
+    if (error) {
+        console.error("Error fetching review list:", error)
+    }
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">

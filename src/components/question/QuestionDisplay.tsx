@@ -29,6 +29,7 @@ export default function QuestionDisplay({
     const [revealLevels, setRevealLevels] = useState<number>(0)
     const [isBookmarked, setIsBookmarked] = useState(initialIsInReviewList)
     const [bookmarking, setBookmarking] = useState(false)
+    const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
 
     // Helper to detect if text contains Arabic characters
     const getDirection = (text: string) => {
@@ -131,9 +132,9 @@ export default function QuestionDisplay({
                 }
 
                 if (explanation.why_incorrect && Array.isArray(explanation.why_incorrect)) {
-                    html += `<div class="mt-2"><div class="flex items-center gap-2 text-red-400 font-bold mb-1"><span class="text-lg">❌</span><span>Why others are incorrect:</span></div><div class="space-y-0.5">`
+                    html += `<div class="mt-3"><div class="flex items-center gap-2 text-red-400 font-bold mb-2"><span class="text-lg">❌</span><span>Why others are incorrect:</span></div><div class="space-y-2.5">`
                     explanation.why_incorrect.forEach((item: any) => {
-                        html += `<div class="flex gap-3 group"><div class="font-bold text-red-500/40 mt-1 min-w-[24px] group-hover:text-red-500/60 transition-colors uppercase">${item.option}:</div><div class="text-gray-300 text-[15px] leading-tight pl-3 border-l border-red-500/10">${item.reason}</div></div>`
+                        html += `<div class="flex gap-3 group"><div class="font-bold text-red-500/40 mt-0.5 min-w-[24px] group-hover:text-red-500/60 transition-colors uppercase">${item.option}:</div><div class="text-gray-300 text-[15px] leading-snug pl-3 border-l border-red-500/20">${item.reason}</div></div>`
                     })
                     html += `</div></div>`
                 }
@@ -211,12 +212,50 @@ export default function QuestionDisplay({
                         {data.mcq_data.options.map((opt: any, idx: number) => {
                             const optText = typeof opt === 'string' ? opt : (opt.text || '');
                             const optId = typeof opt === 'object' ? opt.id : String.fromCharCode(65 + idx);
+
+                            const isSelected = selectedOptionId === optId;
+                            const isCorrectAnswer = optId === (data.mcq_data.correct_answer || data.mcq_data.correct_id);
+
+                            // Determine colors based on selection and correctness
+                            let bgClass = "bg-white/5 hover:bg-white/[0.08]"
+                            let borderClass = "border-white/10"
+                            let textClass = "text-gray-300"
+                            let iconBgClass = "bg-white/5 border-white/10"
+                            let iconTextClass = "text-gray-400 group-hover:text-white"
+
+                            if (isSelected) {
+                                if (isCorrectAnswer) {
+                                    bgClass = "bg-emerald-500/20"
+                                    borderClass = "border-emerald-500/50"
+                                    textClass = "text-emerald-100 font-medium"
+                                    iconBgClass = "bg-emerald-500 text-white border-transparent shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                    iconTextClass = "text-white"
+                                } else {
+                                    bgClass = "bg-red-500/20"
+                                    borderClass = "border-red-500/50"
+                                    textClass = "text-red-100"
+                                    iconBgClass = "bg-red-500 text-white border-transparent"
+                                    iconTextClass = "text-white"
+                                }
+                            } else if (selectedOptionId && isCorrectAnswer) {
+                                // Highlight the correct answer even if they selected the wrong one
+                                bgClass = "bg-emerald-500/10"
+                                borderClass = "border-emerald-500/30 border-dashed"
+                                textClass = "text-emerald-200/80"
+                                iconBgClass = "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+                                iconTextClass = "text-emerald-400"
+                            }
+
                             return (
-                                <div key={idx} className="flex items-center gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/[0.08] transition-all cursor-pointer group">
-                                    <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center font-bold text-gray-400 group-hover:text-white transition-colors">
+                                <div
+                                    key={idx}
+                                    onClick={() => setSelectedOptionId(optId)}
+                                    className={`flex items-center gap-4 p-4 border rounded-2xl transition-all cursor-pointer group ${bgClass} ${borderClass}`}
+                                >
+                                    <div className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold transition-all ${iconBgClass} ${iconTextClass}`}>
                                         {optId}
                                     </div>
-                                    <span className="text-gray-300">{optText}</span>
+                                    <span className={`${textClass} transition-colors`}>{optText}</span>
                                 </div>
                             )
                         })}
