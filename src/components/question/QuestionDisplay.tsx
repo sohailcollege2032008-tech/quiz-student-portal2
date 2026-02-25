@@ -199,10 +199,10 @@ export default function QuestionDisplay({
 
             {/* Question Text */}
             <div
-                className="p-8 bg-white/[0.03] border border-white/10 rounded-3xl shadow-2xl"
+                className="p-5 md:p-8 bg-white/[0.03] border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden"
                 dir={getDirection(question.question_text)}
             >
-                <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-8">
+                <h1 className="text-xl md:text-3xl font-bold leading-tight mb-6 md:mb-8 break-words">
                     {question.question_text}
                 </h1>
 
@@ -250,12 +250,12 @@ export default function QuestionDisplay({
                                 <div
                                     key={idx}
                                     onClick={() => setSelectedOptionId(optId)}
-                                    className={`flex items-center gap-4 p-4 border rounded-2xl transition-all cursor-pointer group ${bgClass} ${borderClass}`}
+                                    className={`flex items-start md:items-center gap-3 md:gap-4 p-3 md:p-4 border rounded-2xl transition-all cursor-pointer group ${bgClass} ${borderClass}`}
                                 >
-                                    <div className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold transition-all ${iconBgClass} ${iconTextClass}`}>
+                                    <div className={`w-8 h-8 rounded-lg border flex-shrink-0 flex items-center justify-center font-bold transition-all mt-0.5 md:mt-0 ${iconBgClass} ${iconTextClass}`}>
                                         {optId}
                                     </div>
-                                    <span className={`${textClass} transition-colors`}>{optText}</span>
+                                    <span className={`${textClass} transition-colors text-sm md:text-base break-words`}>{optText}</span>
                                 </div>
                             )
                         })}
@@ -263,19 +263,19 @@ export default function QuestionDisplay({
                 )}
 
                 {question.type === 'matching' && data.matching_data && (
-                    <div className="grid grid-cols-2 gap-8 py-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 py-4">
                         <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Column A</h4>
+                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 md:mb-4">Column A</h4>
                             {data.matching_data.items.map((m: any) => (
-                                <div key={m.id} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm italic">
+                                <div key={m.id} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm italic break-words">
                                     {m.id}. {m.text}
                                 </div>
                             ))}
                         </div>
                         <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Column B</h4>
+                            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 md:mb-4">Column B</h4>
                             {data.matching_data.options.map((m: any) => (
-                                <div key={m.id} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm italic text-right">
+                                <div key={m.id} className="p-3 bg-white/5 border border-white/10 rounded-xl text-sm italic md:text-right break-words">
                                     ({m.id}) {m.text}
                                 </div>
                             ))}
@@ -300,24 +300,24 @@ export default function QuestionDisplay({
                                 className={`rounded-3xl border transition-all duration-500 overflow-hidden ${isRevealed ? 'bg-white/[0.05] border-white/10' : 'bg-transparent border-white/5 border-dashed'
                                     }`}
                             >
-                                <div className="p-6">
-                                    <div className="flex items-center justify-between mb-4">
+                                <div className="p-4 md:p-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-xl ${section.bg} ${section.color}`}>
+                                            <div className={`p-2 rounded-xl flex-shrink-0 ${section.bg} ${section.color}`}>
                                                 <Icon className="w-5 h-5" />
                                             </div>
-                                            <h3 className={`font-bold text-lg ${section.color}`}>{section.title}</h3>
+                                            <h3 className={`font-bold text-base md:text-lg ${section.color}`}>{section.title}</h3>
                                         </div>
                                         {canReveal && (
                                             <button
                                                 onClick={() => setRevealLevels(idx + 1)}
-                                                className="px-6 py-2 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-all shadow-xl shadow-white/5"
+                                                className="w-full sm:w-auto px-6 py-2 bg-white text-black text-sm md:text-base font-bold rounded-xl hover:bg-gray-200 transition-all shadow-xl shadow-white/5"
                                             >
                                                 Reveal Step
                                             </button>
                                         )}
                                         {isRevealed && (
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500 hidden sm:block" />
                                         )}
                                     </div>
 
