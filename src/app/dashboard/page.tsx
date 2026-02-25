@@ -25,7 +25,7 @@ export default async function DashboardPage() {
         .eq('is_published', true)
         .order('title', { ascending: true })
 
-    // 2. Fetch Books for specific access codes (if any)
+    // 2. Fetch Books for specific access codes (from cookies)
     let unlockedBooks: any[] = []
     if (accessCodes.length > 0) {
         const { data: codeData } = await supabaseAdmin
@@ -34,6 +34,17 @@ export default async function DashboardPage() {
             .in('code', accessCodes)
 
         unlockedBooks = codeData?.map(d => d.books).filter(Boolean) || []
+    }
+
+    // Fetch Books unlocked by the user in the database
+    if (user) {
+        const { data: userActivations } = await supabaseAdmin
+            .from('user_book_activations')
+            .select('*, books(*)')
+            .eq('user_id', user.id)
+
+        const dbUnlockedBooks = userActivations?.map(a => a.books).filter(Boolean) || []
+        unlockedBooks = [...unlockedBooks, ...dbUnlockedBooks]
     }
 
     // 3. Fetch Review List Count
@@ -50,9 +61,15 @@ export default async function DashboardPage() {
     // Combine and deduplicate books
     const allBooksMap = new Map();
     freeBooks?.forEach(b => allBooksMap.set(b.id, { ...b, isFree: true }));
-    unlockedBooks.forEach(b => allBooksMap.set(b.id, { ...b, isUnlocked: true }));
+
+    const unlockedMap = new Map();
+    unlockedBooks.forEach(b => {
+        unlockedMap.set(b.id, b);
+        allBooksMap.set(b.id, { ...b, isUnlocked: true });
+    });
 
     const allBooks = Array.from(allBooksMap.values())
+    const unlockedCount = unlockedMap.size;
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -67,11 +84,11 @@ export default async function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-6">
-                        {accessCodes.length > 0 && (
+                        {unlockedCount > 0 && (
                             <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full">
                                 <Ticket className="w-3.5 h-3.5 text-blue-400" />
                                 <span className="text-[10px] text-blue-400 font-mono font-bold tracking-widest uppercase">
-                                    {accessCodes.length} Books Active
+                                    {unlockedCount} Books Active
                                 </span>
                             </div>
                         )}
