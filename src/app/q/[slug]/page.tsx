@@ -73,22 +73,23 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     const initialIsInReviewList = await getReviewStatus(question.id);
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">
-            <div className="max-w-3xl mx-auto space-y-6">
+        <div className="min-h-screen bg-[#0a0a0a] text-white p-2 md:p-8">
+            <div className="max-w-3xl mx-auto space-y-4 md:space-y-6">
                 {/* Header Navigation */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between px-1 md:px-0">
                     <Link href="/dashboard">
-                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white px-2 md:px-3">
                             <ChevronLeft className="w-4 h-4 mr-1" />
-                            Dashboard
+                            <span className="hidden sm:inline">Dashboard</span>
+                            <span className="sm:hidden">Back</span>
                         </Button>
                     </Link>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <BookOpen className="w-3 h-3" />
-                        <span className="truncate max-w-[150px]">{question.books?.title}</span>
+                    <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs text-gray-400">
+                        <BookOpen className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[100px] md:max-w-[150px]">{question.books?.title}</span>
                         <span className="text-gray-600">/</span>
-                        <GraduationCap className="w-3 h-3 text-emerald-500" />
-                        <span className="truncate max-w-[150px]">{question.topics?.title || 'General'}</span>
+                        <GraduationCap className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                        <span className="truncate max-w-[80px] md:max-w-[150px]">{question.topics?.title || 'General'}</span>
                     </div>
                 </div>
 
