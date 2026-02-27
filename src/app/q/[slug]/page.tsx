@@ -17,6 +17,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     const accessCodes = accessCookie.split(',').filter(c => c.trim().length > 0)
 
     const supabase = createAdminClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
     // 1. Fetch Question data by qr_slug
     const { data: question, error: qError } = await supabase
@@ -42,6 +43,17 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
             .maybeSingle();
 
         if (accessData) hasAccess = true;
+    }
+
+    if (!hasAccess && user) {
+        const { data: userActivation } = await supabase
+            .from('user_book_activations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('book_id', question.book_id)
+            .maybeSingle();
+
+        if (userActivation) hasAccess = true;
     }
 
     if (!hasAccess) {

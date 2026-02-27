@@ -15,6 +15,7 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
     const accessCodes = accessCookie.split(',').filter(c => c.trim().length > 0)
 
     const supabase = createAdminClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
     // 1. Fetch Book info
     const { data: book } = await supabase.from('books').select('*').eq('id', id).single();
@@ -32,6 +33,17 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
             .maybeSingle();
 
         if (accessData) hasAccess = true;
+    }
+
+    if (!hasAccess && user) {
+        const { data: userActivation } = await supabase
+            .from('user_book_activations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('book_id', id)
+            .maybeSingle();
+
+        if (userActivation) hasAccess = true;
     }
 
     if (!hasAccess) {
