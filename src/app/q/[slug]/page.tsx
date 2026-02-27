@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import QuestionDisplay from '@/components/question/QuestionDisplay';
@@ -17,7 +18,8 @@ export default async function QuestionPage({ params }: { params: Promise<{ slug:
     const accessCodes = accessCookie.split(',').filter(c => c.trim().length > 0)
 
     const supabase = createAdminClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabaseServer = await createClient();
+    const { data: { user } } = await supabaseServer.auth.getUser();
 
     // 1. Fetch Question data by qr_slug
     const { data: question, error: qError } = await supabase

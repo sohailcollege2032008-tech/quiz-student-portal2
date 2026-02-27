@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -15,7 +16,8 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
     const accessCodes = accessCookie.split(',').filter(c => c.trim().length > 0)
 
     const supabase = createAdminClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabaseServer = await createClient();
+    const { data: { user } } = await supabaseServer.auth.getUser();
 
     // 1. Fetch Book info
     const { data: book } = await supabase.from('books').select('*').eq('id', id).single();

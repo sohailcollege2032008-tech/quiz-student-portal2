@@ -66,7 +66,6 @@ export async function verifyAccessCode(code: string) {
                 .upsert({
                     user_id: user.id,
                     book_id: accessCode.book_id,
-                    code_id: accessCode.id
                 }, { onConflict: 'user_id, book_id' })
 
             if (activationError) {
@@ -160,7 +159,6 @@ export async function linkAccessCodes() {
                     .upsert({
                         user_id: user.id,
                         book_id: accessCode.book_id,
-                        code_id: accessCode.id
                     }, { onConflict: 'user_id, book_id' })
 
                 if (!linkError) linkedCount++
