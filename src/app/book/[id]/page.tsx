@@ -6,6 +6,7 @@ import Link from 'next/link';
 import LoginForm from '@/components/auth/LoginForm';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, BookOpen, GraduationCap, ChevronRight, HelpCircle } from 'lucide-react';
+import OfflineDownloadButton from '@/components/offline/OfflineDownloadButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,9 +124,12 @@ export default async function BookDetailsPage({ params }: { params: Promise<{ id
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
-                        <BookOpen className="w-3.5 h-3.5" />
-                        LIFETIME ACCESS
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
+                            <BookOpen className="w-3.5 h-3.5" />
+                            LIFETIME ACCESS
+                        </div>
+                        <OfflineDownloadButton bookId={id} bookTitle={book.title} />
                     </div>
                 </div>
 
