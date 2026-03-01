@@ -57,9 +57,12 @@ export default function OfflineDownloadButton({ bookId, bookTitle }: OfflineDown
                 setProgress(data.progress || 0)
             }
             if (data.type === 'DOWNLOAD_COMPLETE') {
-                setStatus('done')
                 setProgress(100)
                 setQuestionCount(data.questionCount || 0)
+                // Pre-cache JS chunks for offline pages BEFORE marking as done
+                preCacheOfflinePageChunks(data.questionCount).then(() => {
+                    setStatus('done')
+                })
             }
             if (data.type === 'DOWNLOAD_ERROR') {
                 setStatus('error')
@@ -78,6 +81,64 @@ export default function OfflineDownloadButton({ bookId, bookTitle }: OfflineDown
             navigator.serviceWorker.removeEventListener('message', handleMessage)
         }
     }, [bookId])
+
+    /**
+     * After download: fetch offline page HTML from the CLIENT (not SW),
+     * extract all /_next/static/ script/link URLs, and pre-fetch them.
+     * This triggers the SW's cacheFirstImmutable() to cache the JS chunks.
+     */
+    const preCacheOfflinePageChunks = async (qCount: number) => {
+        try {
+            const pagesToWarm = [
+                '/offline',
+                `/offline/book/${bookId}`,
+            ]
+
+            for (const pageUrl of pagesToWarm) {
+                const resp = await fetch(pageUrl)
+                if (!resp.ok) continue
+                const html = await resp.text()
+
+                // Find all /_next/static/ URLs in the HTML (scripts, CSS, etc.)
+                const staticUrls = html.match(/\/_next\/static\/[^"'\s)]+/g) || []
+                const uniqueUrls = [...new Set(staticUrls)]
+
+                // Fetch each one - the SW will cache them via cacheFirstImmutable()
+                await Promise.all(
+                    uniqueUrls.map((url) => fetch(url).catch(() => { }))
+                )
+            }
+
+            // Also warm up ONE offline question page so its JS chunk is cached
+            // (all /offline/q/[slug] pages share the same JS bundle)
+            if (qCount > 0) {
+                try {
+                    // We need to find one cached question slug
+                    const cacheNames = await caches.keys()
+                    for (const name of cacheNames) {
+                        if (!name.startsWith('quiz-')) continue
+                        const cache = await caches.open(name)
+                        const keys = await cache.keys()
+                        const qKey = keys.find((r) => r.url.includes('/__offline_data__/q/'))
+                        if (qKey) {
+                            const slug = qKey.url.split('/__offline_data__/q/')[1]
+                            const qResp = await fetch(`/offline/q/${slug}`)
+                            if (qResp.ok) {
+                                const qHtml = await qResp.text()
+                                const qStaticUrls = qHtml.match(/\/_next\/static\/[^"'\s)]+/g) || []
+                                await Promise.all(
+                                    [...new Set(qStaticUrls)].map((url) => fetch(url).catch(() => { }))
+                                )
+                            }
+                            break
+                        }
+                    }
+                } catch { /* non-critical */ }
+            }
+        } catch (err) {
+            console.warn('Could not pre-cache offline page chunks:', err)
+        }
+    }
 
     const handleDownload = useCallback(async () => {
         if (!('serviceWorker' in navigator)) return
