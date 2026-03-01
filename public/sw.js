@@ -54,7 +54,16 @@ self.addEventListener('fetch', (event) => {
         return
     }
 
-    // ── /offline/* pages → Cache-First ────────────────────────────────────────
+    // ── /offline/q/* pages → Template-based serving ─────────────────────────
+    // All /offline/q/[slug] pages render identical HTML (loading spinner).
+    // The client-side code uses useParams() to get the slug and reads cache.
+    // So we can serve ANY cached /offline/q/* page for ANY /offline/q/* request.
+    if (url.pathname.startsWith('/offline/q/')) {
+        event.respondWith(handleOfflineQuestionPage(request))
+        return
+    }
+
+    // ── Other /offline/* pages → Cache-First ──────────────────────────────────
     if (url.pathname.startsWith('/offline')) {
         event.respondWith(cacheFirstWithFallback(request))
         return
@@ -119,6 +128,51 @@ async function handleBookPage(request, url) {
     }
 }
 
+// ─── Handle /offline/q/*: serve template page ────────────────────────────────
+// All /offline/q/[slug] pages have IDENTICAL server-rendered HTML (a loading spinner).
+// The client-side JS uses useParams() to read the slug from the URL and loads
+// the question data from cache. So ANY cached /offline/q/* response works for all.
+async function handleOfflineQuestionPage(request) {
+    const cacheNames = await caches.keys()
+
+    // 1. Try exact match first
+    for (const name of cacheNames) {
+        if (!name.startsWith('quiz-')) continue
+        const cache = await caches.open(name)
+        const cached = await cache.match(request)
+        if (cached) return cached
+    }
+
+    // 2. Try network (online scenario)
+    try {
+        const response = await fetch(request)
+        if (response.ok) {
+            const cache = await caches.open(APP_SHELL_CACHE)
+            cache.put(request, response.clone())
+            return response
+        }
+    } catch { /* offline */ }
+
+    // 3. Offline: find ANY cached /offline/q/* page and serve it as a template
+    for (const name of cacheNames) {
+        if (!name.startsWith('quiz-')) continue
+        const cache = await caches.open(name)
+        const keys = await cache.keys()
+        const templateKey = keys.find(r =>
+            new URL(r.url).pathname.startsWith('/offline/q/')
+        )
+        if (templateKey) {
+            const cached = await cache.match(templateKey)
+            if (cached) return cached
+        }
+    }
+
+    // 4. Final fallback
+    return new Response(
+        '<html><body style="background:#0a0a0a;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;direction:rtl"><div style="text-align:center"><h1>السؤال غير متاح</h1><p>يرجى تحميل الكتاب أولاً وأنت متصل بالإنترنت</p><a href="/offline" style="color:#60a5fa;margin-top:16px;display:inline-block">← الكتب المتاحة</a></div></body></html>',
+        { status: 503, headers: { 'Content-Type': 'text/html; charset=UTF-8' } }
+    )
+}
 // ─── Cache-First with offline fallback ────────────────────────────────────────
 async function cacheFirstWithFallback(request) {
     // Search all quiz caches

@@ -131,7 +131,7 @@ export default function OfflineBookPage() {
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
                                     {topicQuestions.map((q, idx) => (
-                                        <Link key={q.id} href={`/offline/q/${q.qr_slug}`}>
+                                        <a key={q.id} href={`/offline/q/${q.qr_slug}`}>
                                             <div className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-blue-500/30 transition-all">
                                                 <div className="flex items-center gap-4">
                                                     <span className="text-xs font-mono text-gray-600 w-6">{(idx + 1).toString().padStart(2, '0')}</span>
@@ -139,7 +139,7 @@ export default function OfflineBookPage() {
                                                 </div>
                                                 <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                                             </div>
-                                        </Link>
+                                        </a>
                                     ))}
                                     {topicQuestions.length === 0 && (
                                         <p className="text-sm text-gray-600 italic ml-11">لا يوجد أسئلة لهذا الموضوع.</p>
@@ -159,7 +159,7 @@ export default function OfflineBookPage() {
                             </div>
                             <div className="grid grid-cols-1 gap-2">
                                 {untrackedQuestions.map((q, idx) => (
-                                    <Link key={q.id} href={`/offline/q/${q.qr_slug}`}>
+                                    <a key={q.id} href={`/offline/q/${q.qr_slug}`}>
                                         <div className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-blue-500/30 transition-all">
                                             <div className="flex items-center gap-4">
                                                 <span className="text-xs font-mono text-gray-600 w-6">{(idx + 1).toString().padStart(2, '0')}</span>
@@ -167,7 +167,7 @@ export default function OfflineBookPage() {
                                             </div>
                                             <ChevronRight className="w-4 h-4 text-gray-700 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                                         </div>
-                                    </Link>
+                                    </a>
                                 ))}
                             </div>
                         </section>
