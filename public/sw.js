@@ -1,23 +1,24 @@
 // Service Worker for Quiz Engine - Offline Book Support
-// Version: 1.0
-const CACHE_VERSION = 'v1'
+// Version: 2.0 — Fixed offline redirect logic
+const CACHE_VERSION = 'v2'
 const APP_SHELL_CACHE = `quiz-shell-${CACHE_VERSION}`
 const BOOKS_CACHE = `quiz-books-${CACHE_VERSION}`
 
-// Core app shell files to cache immediately on install
+// Core app shell files to pre-cache on install
 const APP_SHELL_URLS = [
-    '/',
-    '/dashboard',
     '/offline',
 ]
 
 // ─── Install: Cache app shell ────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(APP_SHELL_CACHE).then((cache) => {
-            return cache.addAll(APP_SHELL_URLS).catch(() => {
-                // Silently fail for individual URLs - don't block install
-            })
+        caches.open(APP_SHELL_CACHE).then(async (cache) => {
+            // Try to cache offline page - don't block install if it fails
+            try {
+                await cache.add('/offline')
+            } catch (e) {
+                console.warn('[SW] Could not pre-cache /offline:', e)
+            }
         }).then(() => self.skipWaiting())
     )
 })
@@ -29,9 +30,9 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames
                     .filter((name) => {
-                        return name.startsWith('quiz-') &&
-                            name !== APP_SHELL_CACHE &&
-                            name !== BOOKS_CACHE
+                        // Delete old version caches
+                        return (name.startsWith('quiz-shell-') && name !== APP_SHELL_CACHE) ||
+                            (name.startsWith('quiz-books-') && name !== BOOKS_CACHE)
                     })
                     .map((name) => caches.delete(name))
             )
@@ -44,37 +45,59 @@ self.addEventListener('fetch', (event) => {
     const { request } = event
     const url = new URL(request.url)
 
-    // Skip non-GET requests and non-same-origin
-    if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) {
-        return
-    }
+    // Skip non-GET requests
+    if (request.method !== 'GET') return
 
-    // Skip Supabase API requests - these should never be cached
-    if (url.hostname.includes('supabase')) {
-        return
-    }
+    // Skip non-same-origin requests (Supabase, CDN, etc.)
+    if (url.origin !== self.location.origin) return
 
-    // Skip Next.js internal routes and API routes (except our offline API)
-    if (url.pathname.startsWith('/_next/') ||
-        (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/book/'))) {
-        return
-    }
+    // Skip Next.js internal routes
+    if (url.pathname.startsWith('/_next/')) return
 
-    // For question pages (/q/[slug]) → Cache-First strategy (works offline)
+    // Skip all API routes EXCEPT our own offline API
+    if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/book/')) return
+
+    // ── Question pages: /q/[slug] ──────────────────────────────────────────
+    // These are SSR pages — offline we redirect to the /offline/q/[slug] equivalents
     if (url.pathname.startsWith('/q/')) {
-        event.respondWith(cacheFirstStrategy(request, BOOKS_CACHE))
+        event.respondWith(handleQuestionRequest(request, url))
         return
     }
 
-    // For book pages (/book/[id]) → Cache-First strategy
-    if (url.pathname.startsWith('/book/')) {
-        event.respondWith(cacheFirstStrategy(request, BOOKS_CACHE))
+    // ── Offline pages already: serve from cache ────────────────────────────
+    if (url.pathname.startsWith('/offline')) {
+        event.respondWith(cacheFirstStrategy(request, APP_SHELL_CACHE))
         return
     }
 
-    // For everything else → Network-First (try server, fallback to cache)
-    event.respondWith(networkFirstStrategy(request))
+    // ── API book offline endpoint: cache the response ──────────────────────
+    if (url.pathname.startsWith('/api/book/') && url.pathname.endsWith('/offline')) {
+        event.respondWith(networkFirstStrategy(request, APP_SHELL_CACHE))
+        return
+    }
+
+    // ── Everything else: network first ────────────────────────────────────
+    event.respondWith(networkFirstStrategy(request, APP_SHELL_CACHE))
 })
+
+// ─── Handle /q/[slug] Requests ───────────────────────────────────────────────
+// If online → pass through to server (normal SSR)
+// If offline → redirect to /offline/q/[slug] which reads from cache
+async function handleQuestionRequest(request, url) {
+    try {
+        // Try network first (normal online flow)
+        const response = await fetch(request)
+        return response
+    } catch {
+        // Network failed → we are offline
+        // Extract the slug from /q/[slug]
+        const slug = url.pathname.replace('/q/', '')
+
+        // Redirect to offline question page
+        const offlineUrl = new URL(`/offline/q/${slug}`, self.location.origin)
+        return Response.redirect(offlineUrl.href, 302)
+    }
+}
 
 // ─── Cache-First Strategy ─────────────────────────────────────────────────────
 async function cacheFirstStrategy(request, cacheName) {
@@ -85,7 +108,6 @@ async function cacheFirstStrategy(request, cacheName) {
         return cached
     }
 
-    // Not in cache, try network
     try {
         const response = await fetch(request)
         if (response.ok) {
@@ -93,9 +115,9 @@ async function cacheFirstStrategy(request, cacheName) {
         }
         return response
     } catch {
-        // Return offline page if we can't fetch
+        // Return offline fallback
         const offlinePage = await caches.match('/offline')
-        return offlinePage || new Response('You are offline and this content is not cached.', {
+        return offlinePage || new Response('You are offline.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' }
         })
@@ -103,11 +125,11 @@ async function cacheFirstStrategy(request, cacheName) {
 }
 
 // ─── Network-First Strategy ───────────────────────────────────────────────────
-async function networkFirstStrategy(request) {
+async function networkFirstStrategy(request, cacheName) {
     try {
         const response = await fetch(request)
         if (response.ok) {
-            const cache = await caches.open(APP_SHELL_CACHE)
+            const cache = await caches.open(cacheName)
             cache.put(request, response.clone())
         }
         return response
@@ -115,17 +137,17 @@ async function networkFirstStrategy(request) {
         const cached = await caches.match(request)
         if (cached) return cached
         const offlinePage = await caches.match('/offline')
-        return offlinePage || new Response('Offline', { status: 503 })
+        return offlinePage || new Response('You are offline.', { status: 503 })
     }
 }
 
-// ─── Message Handler: Download Book ──────────────────────────────────────────
+// ─── Message Handler ──────────────────────────────────────────────────────────
 self.addEventListener('message', async (event) => {
     if (!event.data) return
 
     if (event.data.type === 'DOWNLOAD_BOOK') {
-        const { bookId, accessToken } = event.data.payload
-        await downloadBookForOffline(bookId, accessToken, event.source)
+        const { bookId } = event.data.payload
+        await downloadBookForOffline(bookId, event.source)
     }
 
     if (event.data.type === 'CHECK_BOOK_CACHED') {
@@ -142,16 +164,12 @@ self.addEventListener('message', async (event) => {
 })
 
 // ─── Download Book for Offline ────────────────────────────────────────────────
-async function downloadBookForOffline(bookId, accessToken, client) {
+async function downloadBookForOffline(bookId, client) {
     try {
         client.postMessage({ type: 'DOWNLOAD_PROGRESS', bookId, status: 'fetching', progress: 10 })
 
-        // Fetch all book data in one request
-        const headers = {}
-        if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
-
-        const apiUrl = `/api/book/${bookId}/offline`
-        const response = await fetch(apiUrl, { headers, credentials: 'include' })
+        const apiUrl = `${self.location.origin}/api/book/${bookId}/offline`
+        const response = await fetch(apiUrl, { credentials: 'include' })
 
         if (!response.ok) {
             throw new Error(`Failed to fetch book data: ${response.status}`)
@@ -164,15 +182,12 @@ async function downloadBookForOffline(bookId, accessToken, client) {
         const total = bookData.questions.length
         let cached = 0
 
-        // Cache each question page by creating a synthetic response
+        // Cache each question's data for the offline question page
         for (const question of bookData.questions) {
             if (!question.qr_slug) continue
 
-            // Store the question data as a JSON response, keyed by its QR slug URL
-            const questionUrl = `${self.location.origin}/q/${question.qr_slug}`
             const questionDataUrl = `${self.location.origin}/__offline_data__/q/${question.qr_slug}`
 
-            // Store the raw question JSON for client-side rendering
             const questionResponse = new Response(JSON.stringify({
                 ...question,
                 _cached_book: bookData.book,
@@ -188,11 +203,21 @@ async function downloadBookForOffline(bookId, accessToken, client) {
             client.postMessage({ type: 'DOWNLOAD_PROGRESS', bookId, status: 'caching', progress })
         }
 
-        // Also store the book index data
+        // Store the book index data
         const bookIndexResponse = new Response(JSON.stringify(bookData), {
             headers: { 'Content-Type': 'application/json', 'X-Offline-Cached': 'true' }
         })
         await cache.put(`${self.location.origin}/__offline_data__/book/${bookId}`, bookIndexResponse)
+
+        // Also cache the offline question pages (HTML shell)
+        try {
+            const offlineBookPage = await fetch(`${self.location.origin}/offline/book/${bookId}`, { credentials: 'include' })
+            if (offlineBookPage.ok) {
+                await cache.put(`${self.location.origin}/offline/book/${bookId}`, offlineBookPage)
+            }
+        } catch {
+            // Not critical — page can render from JS
+        }
 
         client.postMessage({
             type: 'DOWNLOAD_COMPLETE',
@@ -221,7 +246,6 @@ async function isBookCached(bookId) {
 async function deleteBookCache(bookId) {
     const cache = await caches.open(BOOKS_CACHE)
 
-    // Get book data to find all question slugs
     const bookResponse = await cache.match(`${self.location.origin}/__offline_data__/book/${bookId}`)
     if (bookResponse) {
         const bookData = await bookResponse.json()

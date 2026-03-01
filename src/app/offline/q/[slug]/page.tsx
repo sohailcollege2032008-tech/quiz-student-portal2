@@ -6,6 +6,7 @@ import QuestionDisplay from '@/components/question/QuestionDisplay'
 import { ChevronLeft, BookOpen, GraduationCap, WifiOff } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { matchFromBooksCache } from '@/lib/offline/cache-utils'
 
 export default function OfflineQuestionPage() {
     const params = useParams()
@@ -25,8 +26,7 @@ export default function OfflineQuestionPage() {
                     return
                 }
 
-                const cache = await caches.open('quiz-books-v1')
-                const response = await cache.match(
+                const response = await matchFromBooksCache(
                     `${window.location.origin}/__offline_data__/q/${slug}`
                 )
 

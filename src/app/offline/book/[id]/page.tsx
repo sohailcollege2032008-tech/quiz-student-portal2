@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { GraduationCap, ChevronRight, WifiOff, HelpCircle, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { matchFromBooksCache } from '@/lib/offline/cache-utils'
 
 interface CachedQuestion {
     id: string
@@ -38,8 +39,7 @@ export default function OfflineBookPage() {
         const loadFromCache = async () => {
             try {
                 if (!('caches' in window)) return
-                const cache = await caches.open('quiz-books-v1')
-                const response = await cache.match(
+                const response = await matchFromBooksCache(
                     `${window.location.origin}/__offline_data__/book/${bookId}`
                 )
                 if (response) {

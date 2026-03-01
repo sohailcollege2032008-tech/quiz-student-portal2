@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { WifiOff, Book, RefreshCw } from 'lucide-react'
+import { matchFromBooksCache } from '@/lib/offline/cache-utils'
 
 interface CachedBook {
     book: {
@@ -20,20 +21,33 @@ export default function OfflinePage() {
     useEffect(() => {
         const loadCachedBooks = async () => {
             try {
-                if (!('caches' in window)) return
+                if (!('caches' in window)) {
+                    setLoading(false)
+                    return
+                }
 
-                const cache = await caches.open('quiz-books-v1')
-                const keys = await cache.keys()
-                const bookKeys = keys.filter((req) =>
-                    req.url.includes('/__offline_data__/book/')
-                )
+                // Search across ALL quiz-books-* caches (handles version changes)
+                const cacheNames = await caches.keys()
+                const bookCacheNames = cacheNames.filter((n) => n.startsWith('quiz-books-'))
 
+                const seenBookIds = new Set<string>()
                 const books: CachedBook[] = []
-                for (const key of bookKeys) {
-                    const response = await cache.match(key)
-                    if (response) {
-                        const data = await response.json()
-                        books.push(data)
+
+                for (const cacheName of bookCacheNames) {
+                    const cache = await caches.open(cacheName)
+                    const keys = await cache.keys()
+                    const bookKeys = keys.filter((req) => req.url.includes('/__offline_data__/book/'))
+
+                    for (const key of bookKeys) {
+                        const response = await cache.match(key)
+                        if (response) {
+                            const data = await response.json()
+                            // Avoid duplicates if data appears in multiple caches
+                            if (!seenBookIds.has(data.book?.id)) {
+                                seenBookIds.add(data.book?.id)
+                                books.push(data)
+                            }
+                        }
                     }
                 }
 
