@@ -64,11 +64,23 @@ export default function QuestionDisplay({
     }
 
     const data = question.content_json
-    const sections = [
+
+    // Build sections dynamically — only include sections that have data
+    const allSections = [
         { id: 1, title: 'The Idea', type: 'the_idea', icon: Lightbulb, color: 'text-amber-400', bg: 'bg-amber-400/10' },
         { id: 2, title: 'The Approach', type: 'how_to_solve', icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-400/10' },
         { id: 3, title: 'The Solution', type: 'explanation', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
     ]
+
+    // Check if a section has actual content
+    const hasContent = (type: string): boolean => {
+        if (type === 'the_idea') return !!(data.the_idea || question.the_idea)
+        if (type === 'how_to_solve') return !!(data.how_to_solve || question.how_to_solve)
+        if (type === 'explanation') return true // Solution always has content (answer display)
+        return false
+    }
+
+    const sections = allSections.filter(s => hasContent(s.type))
 
     const getSectionContent = (type: string) => {
         // Correct data paths based on database structure
