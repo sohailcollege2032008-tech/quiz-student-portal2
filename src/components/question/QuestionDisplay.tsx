@@ -11,7 +11,8 @@ import {
     BookOpen,
     CheckCircle,
     Star,
-    Loader2
+    Loader2,
+    Library
 } from 'lucide-react'
 import { toggleReviewQuestion } from '@/app/actions/student-actions'
 
@@ -64,32 +65,85 @@ export default function QuestionDisplay({
     }
 
     const data = question.content_json
+    const qType = question.type // mcq, case_mcq, tf, matching, list, mention, define, case_written
+
+    // Does this question have MCQ data? (mcq or case_mcq)
+    const hasMcq = (qType === 'mcq' || qType === 'case_mcq') && data.mcq_data
+    const mcqData = data.mcq_data
+    const explanation = mcqData?.explanation || data.explanation
 
     // Build sections dynamically — only include sections that have data
     const allSections = [
         { id: 1, title: 'The Idea', type: 'the_idea', icon: Lightbulb, color: 'text-amber-400', bg: 'bg-amber-400/10' },
         { id: 2, title: 'The Approach', type: 'how_to_solve', icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-        { id: 3, title: 'The Solution', type: 'explanation', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
+        { id: 3, title: 'The Solution', type: 'explanation', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+        { id: 4, title: 'Topic Summary', type: 'topic_summary', icon: Library, color: 'text-purple-400', bg: 'bg-purple-400/10' },
     ]
 
     // Check if a section has actual content
     const hasContent = (type: string): boolean => {
         if (type === 'the_idea') return !!(data.the_idea || question.the_idea)
-        if (type === 'how_to_solve') return !!(data.how_to_solve || question.how_to_solve)
-        if (type === 'explanation') return true // Solution always has content (answer display)
+        if (type === 'how_to_solve') return !!(data.how_to_solve || question.how_to_solve || data.case_breakdown)
+        if (type === 'explanation') return true // Solution always has content
+        if (type === 'topic_summary') {
+            const ts = data.topic_summary
+            if (!ts) return false
+            if (typeof ts === 'string') return ts.trim().length > 0
+            // Object with sub-fields
+            return !!(ts.definitions || ts.comparisons || ts.classifications || ts.comprehensive_overview)
+        }
         return false
     }
 
     const sections = allSections.filter(s => hasContent(s.type))
 
     const getSectionContent = (type: string) => {
-        // Correct data paths based on database structure
-        const mcqData = data.mcq_data;
-        const explanation = mcqData?.explanation || data.explanation;
+        // ──────────────────────────────────────────
+        // THE IDEA
+        // ──────────────────────────────────────────
+        if (type === 'the_idea') {
+            return data.the_idea || question.the_idea || ''
+        }
 
+        // ──────────────────────────────────────────
+        // HOW TO SOLVE / THE APPROACH
+        // ──────────────────────────────────────────
+        if (type === 'how_to_solve') {
+            // Prefer how_to_solve, fallback to case_breakdown (legacy)
+            return data.how_to_solve || question.how_to_solve || data.case_breakdown || ''
+        }
+
+        // ──────────────────────────────────────────
+        // TOPIC SUMMARY
+        // ──────────────────────────────────────────
+        if (type === 'topic_summary') {
+            const ts = data.topic_summary
+            if (!ts) return ''
+            if (typeof ts === 'string') return ts
+
+            let html = '<div class="space-y-4">'
+            if (ts.definitions) {
+                html += `<div><span class="font-bold text-purple-300">Definitions:</span> <span class="text-gray-300">${ts.definitions}</span></div>`
+            }
+            if (ts.comparisons) {
+                html += `<div><span class="font-bold text-purple-300">Comparisons:</span> <span class="text-gray-300">${ts.comparisons}</span></div>`
+            }
+            if (ts.classifications) {
+                html += `<div><span class="font-bold text-purple-300">Classifications:</span> <span class="text-gray-300">${ts.classifications}</span></div>`
+            }
+            if (ts.comprehensive_overview) {
+                html += `<div><span class="font-bold text-purple-300">Overview:</span> <span class="text-gray-300">${ts.comprehensive_overview}</span></div>`
+            }
+            html += '</div>'
+            return html
+        }
+
+        // ──────────────────────────────────────────
+        // THE SOLUTION / EXPLANATION
+        // ──────────────────────────────────────────
         if (type === 'explanation') {
-            // Priority 1: True/False Explanation
-            if (question.type === 'tf' && data.tf_data) {
+            // === True/False ===
+            if (qType === 'tf' && data.tf_data) {
                 const isTrue = data.tf_data.is_true
                 return `
                     <div class="mb-4 flex items-center gap-2 ${isTrue ? 'text-emerald-400' : 'text-red-400'} font-bold text-xl uppercase tracking-wider">
@@ -99,8 +153,8 @@ export default function QuestionDisplay({
                 `
             }
 
-            // Priority 2: Matching Explanation
-            if (question.type === 'matching' && data.matching_data) {
+            // === Matching ===
+            if (qType === 'matching' && data.matching_data) {
                 const mapping = data.matching_data.correct_mapping
                 const items = data.matching_data.items
                 const options = data.matching_data.options
@@ -124,19 +178,13 @@ export default function QuestionDisplay({
                     }
                 })
                 html += `</div>`
-
-                if (data.how_to_solve) {
-                    html += `<div class="text-amber-400 font-medium mb-3">💡 Strategy:</div>`
-                    html += `<div class="text-gray-300 italic">${data.how_to_solve}</div>`
-                }
                 return html
             }
 
-            // Priority 3: MCQ Explanation Breakdown (Detailed Object)
-            if (explanation && typeof explanation === 'object') {
+            // === MCQ / Case MCQ — Detailed explanation object ===
+            if (hasMcq && explanation && typeof explanation === 'object') {
                 let html = ''
 
-                // Show Correct Answer section as in screenshot
                 if (explanation.why_correct) {
                     const correctId = mcqData?.correct_answer || mcqData?.correct_id;
                     const correctLabel = correctId ? `: ${correctId}` : '';
@@ -150,11 +198,11 @@ export default function QuestionDisplay({
                     })
                     html += `</div></div>`
                 }
-                return html || 'No detailed explanation provided for this step.'
+                return html || 'No detailed explanation provided.'
             }
 
-            // Priority 4: Simple MCQ Correctness (if no text explanation)
-            if (question.type === 'mcq' && (mcqData?.correct_answer || mcqData?.correct_id)) {
+            // === MCQ / Case MCQ — Simple correct answer (no detailed explanation) ===
+            if (hasMcq && (mcqData?.correct_answer || mcqData?.correct_id)) {
                 const correctId = mcqData?.correct_answer || mcqData?.correct_id;
                 return `
                     <div class="mb-4">
@@ -162,16 +210,46 @@ export default function QuestionDisplay({
                             <span class="text-lg">✨</span>
                             <span>Correct Answer: ${correctId}</span>
                         </div>
-                        ${explanation ? `<div class="text-gray-300 leading-relaxed pl-4 border-l border-emerald-500/20">${explanation}</div>` : ''}
+                        ${typeof explanation === 'string' ? `<div class="text-gray-300 leading-relaxed pl-4 border-l border-emerald-500/20">${explanation}</div>` : ''}
                     </div>
                 `
             }
 
-            // Fallback for simple string explanations
-            return (typeof explanation === 'string' ? explanation : null) || 'No detailed solution provided for this step.'
+            // === Written answers: List / Mention (answers array) ===
+            if ((qType === 'list' || qType === 'mention') && data.written_data?.answers && Array.isArray(data.written_data.answers)) {
+                let html = `<div class="space-y-3">`
+                html += `<div class="text-emerald-400 font-medium mb-2 flex items-center gap-2">✍️ Answers:</div>`
+                data.written_data.answers.forEach((a: any, idx: number) => {
+                    html += `<div class="p-3 bg-white/5 border border-white/10 rounded-2xl">`
+                    html += `<span class="font-bold text-gray-400 mr-2">${a.id || idx + 1}.</span>`
+                    html += `<span class="text-gray-200 font-medium">${a.text}</span>`
+                    if (a.explanation) {
+                        html += `<span class="text-gray-400 ml-2">— ${a.explanation}</span>`
+                    }
+                    html += `</div>`
+                })
+                html += `</div>`
+                return html
+            }
+
+            // === Written answer: Define / Case Written (answer_text) ===
+            if ((qType === 'define' || qType === 'case_written') && data.written_data?.answer_text) {
+                return `
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold mb-3">
+                            <span class="text-lg">✍️</span>
+                            <span>Answer</span>
+                        </div>
+                        <div class="text-gray-300 leading-relaxed pl-4 border-l border-emerald-500/20">${data.written_data.answer_text}</div>
+                    </div>
+                `
+            }
+
+            // === Fallback ===
+            return typeof explanation === 'string' ? explanation : 'No detailed solution provided.'
         }
 
-        return data[type] || question[type] || 'No information provided for this step.'
+        return data[type] || question[type] || ''
     }
 
     return (
@@ -218,15 +296,15 @@ export default function QuestionDisplay({
                     {question.question_text}
                 </h1>
 
-                {/* Question Type Specific Content */}
-                {question.type === 'mcq' && data.mcq_data && (
+                {/* MCQ Options — for BOTH mcq AND case_mcq */}
+                {hasMcq && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {data.mcq_data.options.map((opt: any, idx: number) => {
+                        {mcqData.options.map((opt: any, idx: number) => {
                             const optText = typeof opt === 'string' ? opt : (opt.text || '');
                             const optId = typeof opt === 'object' ? opt.id : String.fromCharCode(65 + idx);
 
                             const isSelected = selectedOptionId === optId;
-                            const isCorrectAnswer = optId === (data.mcq_data.correct_answer || data.mcq_data.correct_id);
+                            const isCorrectAnswer = optId === (mcqData.correct_answer || mcqData.correct_id);
 
                             // Determine colors based on selection and correctness
                             let bgClass = "bg-white/5 hover:bg-white/[0.08]"
@@ -274,7 +352,8 @@ export default function QuestionDisplay({
                     </div>
                 )}
 
-                {question.type === 'matching' && data.matching_data && (
+                {/* Matching Grid */}
+                {qType === 'matching' && data.matching_data && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 py-4">
                         <div className="space-y-3">
                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 md:mb-4">Column A</h4>
